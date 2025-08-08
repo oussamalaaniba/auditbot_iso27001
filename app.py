@@ -6,7 +6,7 @@ from io import BytesIO
 import streamlit as st
 import pandas as pd
 import plotly.express as px
-import fitz
+import fitz  # PyMuPDF
 import docx
 from dotenv import load_dotenv
 from openai import OpenAI
@@ -24,7 +24,6 @@ from utils.ai_helper import analyse_documents_with_ai
 # --- Config & constantes ---
 st.set_page_config(page_title="AuditBot ISO 27001 - IA", layout="wide")
 
-# Base project dir + dossiers de sortie robustes
 BASE_DIR = Path(__file__).resolve().parent
 OUTPUT_DIR = BASE_DIR / "data" / "output"
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
@@ -37,20 +36,10 @@ if not OPENAI_API_KEY:
     st.stop()
 client = OpenAI(api_key=OPENAI_API_KEY)
 
-# --- Message d'accueil ---
-st.markdown(
-    "### 👋 Bienvenue sur **AuditBot ISO 27001**\n"
-    "Analysez vos documents (politiques, procédures, rapports) pour pré-remplir le questionnaire, "
-    "générez une **Gap Analysis** et un **rapport Word** prêt à partager."
-)
-st.caption(
-    "Astuce : commencez par choisir l’objectif, entrez le nom du client, "
-    "puis importez 1 à 3 documents (PDF/DOCX/TXT)."
-)
-
-# --- Sélection du mode d'audit ---
+# --- En-tête ---
 st.title("🔍 Audit ISO 27001")
 
+# --- Sélection du mode d'audit ---
 if "audit_mode" not in st.session_state:
     st.session_state.audit_mode = None
 
@@ -105,7 +94,7 @@ def detect_client_name_with_ai(text):
     Utilise l'IA pour identifier l'organisation ou le client mentionné dans le document.
     Analyse uniquement les premières lignes pour éviter les faux positifs et réduire le coût.
     """
-    preview_text = text[:1500]  # Limite à 1500 caractères
+    preview_text = text[:1500]
 
     prompt = f"""
 Tu es un expert en audit ISO 27001.
@@ -113,15 +102,12 @@ Voici un extrait du début d'un document d'audit :
 ---
 {preview_text}
 ---
-À partir de cet extrait, identifie uniquement le NOM de l'organisation ou du client
-auquel appartient ce document.
-
+À partir de cet extrait, identifie uniquement le NOM de l'organisation ou du client.
 IMPORTANT :
 - Ne donne pas d'explication.
 - Ne réponds que par le nom détecté.
-- Si tu n'es pas sûr ou que le nom n'apparaît pas clairement, réponds exactement "Inconnu".
+- Si tu n'es pas sûr, réponds exactement "Inconnu".
 """
-
     try:
         response = client.chat.completions.create(
             model="gpt-4o-mini",
@@ -167,6 +153,13 @@ def make_correct_example_docx(client_name: str):
 
 # --- Upload documents ---
 st.subheader("📂 Importer documents du client")
+
+# Message explicatif dans la rubrique Upload
+st.markdown(
+    "Analysez vos documents (**politiques, procédures, rapports**) pour pré-remplir le questionnaire, "
+    "générez une **Gap Analysis** et un **rapport Word** prêt à partager."
+)
+
 with st.expander("📎 Exemples de documents à tester (téléchargeables)"):
     col_a, col_b = st.columns(2)
     with col_a:
@@ -185,14 +178,14 @@ with st.expander("📎 Exemples de documents à tester (téléchargeables)"):
             mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
             use_container_width=True
         )
-st.caption("Formats acceptés : PDF, DOCX, TXT — limite 200 Mo par fichier.")
 
 uploaded_files = st.file_uploader(
-    "Importer vos documents",
+    "Formats acceptés : PDF, DOCX, TXT — limite 200 Mo par fichier.",
     type=["pdf", "docx", "txt"],
     accept_multiple_files=True
 )
 
+# --- Lecture & contrôle des documents ---
 documents_text = ""
 detected_client_names = set()
 
@@ -215,7 +208,7 @@ if uploaded_files:
         if detected_name and detected_name != "Inconnu":
             detected_client_names.add(detected_name)
 
-    # Vérification multi-clients
+    # Blocage multi-clients détectés
     if len(detected_client_names) > 1:
         st.error(
             f"⚠️ Plusieurs clients détectés dans les documents : "
@@ -223,27 +216,24 @@ if uploaded_files:
         )
         st.stop()
 
-   
-# Vérification cohérence avec saisie (blocage strict)
-if detected_client_names and not any(
-    client_name_input.lower() in name.lower() for name in detected_client_names
-):
-    st.error(
-        "🚨 Incohérence détectée : "
-        f"documents analysés pour {', '.join(detected_client_names)}, "
-        f"≠ nom saisi '{client_name_input}'.\n"
-        "Veuillez corriger le nom ou importer les bons documents."
+    # Blocage strict si nom saisi ≠ nom détecté
+    mismatch = detected_client_names and not any(
+        client_name_input.lower() in name.lower() for name in detected_client_names
     )
-
-    # Optionnel : proposer un fichier exemple correct
-    st.download_button(
-        f"⬇️ Télécharger un exemple DOCX pour {client_name_input}",
-        data=make_correct_example_docx(client_name_input),
-        file_name=f"exemple_{client_name_input.replace(' ', '_')}.docx",
-        mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-    )
-
-    st.stop()  # ⛔ Stoppe immédiatement le script
+    if mismatch:
+        st.error(
+            "🚨 Incohérence détectée : "
+            f"documents analysés pour {', '.join(detected_client_names)}, "
+            f"≠ nom saisi '{client_name_input}'.\n"
+            "Veuillez corriger le nom ou importer les bons documents."
+        )
+        st.download_button(
+            f"⬇️ Télécharger un exemple DOCX pour {client_name_input}",
+            data=make_correct_example_docx(client_name_input),
+            file_name=f"exemple_{client_name_input.replace(' ', '_')}.docx",
+            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        )
+        st.stop()
 
 # --- Analyse IA des réponses audit ---
 responses = {}
@@ -323,19 +313,21 @@ with st.form("audit_form"):
             question_display = f"{clause} – {question_text}" if clause else question_text
             answer_data = responses.get(domain, {}).get(question_text, "")
 
+            key_suffix = f"{domain}_{clause}_{hash(question_text)}"
+
             if isinstance(answer_data, dict):
                 reponse_simple = answer_data.get("Réponse", "")
                 new_answer = st.text_area(
                     question_display,
                     value=reponse_simple,
-                    key=f"{domain}_{clause}_{question_text}"
+                    key=f"ta_{key_suffix}"
                 )
                 final_responses[domain][question_text] = {**answer_data, "Réponse": new_answer}
             else:
                 new_answer = st.text_area(
                     question_display,
                     value=answer_data,
-                    key=f"{domain}_{clause}_{question_text}"
+                    key=f"tb_{key_suffix}"
                 )
                 final_responses[domain][question_text] = new_answer
 
