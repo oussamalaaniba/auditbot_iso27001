@@ -4,10 +4,18 @@ import os
 from dotenv import load_dotenv
 from openai import OpenAI
 from datetime import datetime, timedelta
+import streamlit as st  # ✅ ajouté
 
-# Charger la clé API
-load_dotenv()
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+# --- Charger la clé API ---
+load_dotenv()  # pour exécution locale
+OPENAI_API_KEY = st.secrets.get("OPENAI_API_KEY") or os.getenv("OPENAI_API_KEY")
+
+if not OPENAI_API_KEY:
+    st.error("🚨 Clé API OpenAI manquante. Ajoutez-la dans Settings → Secrets.")
+    st.stop()
+
+client = OpenAI(api_key=OPENAI_API_KEY)
+
 
 def analyse_responses(responses, nom_client=""):
     """
