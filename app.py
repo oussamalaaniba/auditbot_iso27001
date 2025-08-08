@@ -9,6 +9,7 @@ from core.analysis import (
 )
 from core.report import generate_audit_report
 from utils.ai_helper import analyse_documents_with_ai
+from io import BytesIO
 import pandas as pd
 import os
 import fitz
@@ -32,6 +33,15 @@ client = OpenAI(api_key=OPENAI_API_KEY)
 OUTPUT_DIR = "data/output"
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 st.set_page_config(page_title="AuditBot ISO 27001 - IA", layout="wide")
+
+# --- Message d'accueil ---
+st.markdown(
+    "### 👋 Bienvenue sur **AuditBot ISO 27001**\n"
+    "Analysez vos documents (politiques, procédures, rapports) pour pré-remplir le questionnaire, "
+    "générez une **Gap Analysis** et un **rapport Word** prêt à partager."
+)
+st.caption("Astuce : commencez par choisir l’objectif, entrez le nom du client, puis importez 1 à 3 documents (PDF/DOCX/TXT).")
+
 
 # --- Sélection du mode d'audit ---
 st.title("🔍 Audit ISO 27001")
@@ -58,9 +68,14 @@ else:
     st.stop()
 
 # --- Nom du client ---
-client_name_input = st.text_input("🏢 Nom du client pour cet audit", placeholder="Exemple : D&A, CACEIS, Banque XYZ...")
+client_name_input = st.text_input(
+    "🏢 Nom du client pour cet audit",
+    placeholder="Exemple : D&A, CACEIS, Banque XYZ..."
+).strip()
 
-if not client_name_input:
+if client_name_input:
+    st.success(f"Client sélectionné : **{client_name_input}** (appuyez sur Enter pour valider si le champ reste rouge)")
+else:
     st.warning("Veuillez indiquer le nom du client avant d'importer les documents.")
     st.stop()
 
@@ -110,8 +125,48 @@ def detect_client_name_with_ai(text):
         print(f"Erreur détection IA : {e}")
         return "Inconnu"
 
+# --- Exemples : fichiers téléchargeables pour test ---
+def make_example_txt():
+    content = (
+        "Client: ACME BANK\n"
+        "Document: ISMS Policy v1.2\n"
+        "Scope: HQ + DataCenter\n"
+        "Summary: High-level information security policy aligned to ISO/IEC 27001.\n"
+    )
+    return content.encode("utf-8")
+
+def make_example_docx():
+    d = docx.Document()
+    d.add_heading("Access Control Procedure", level=1)
+    d.add_paragraph("Client: ACME BANK")
+    d.add_paragraph("Purpose: Define access control rules aligned with ISO/IEC 27001 A.9.")
+    d.add_paragraph("Scope: Corporate systems, VDI, privileged accounts, third parties.")
+    bio = BytesIO()
+    d.save(bio)
+    bio.seek(0)
+    return bio.getvalue()
+
 # --- Upload documents ---
 st.subheader("📂 Importer documents du client")
+with st.expander("📎 Exemples de documents à tester (téléchargeables)"):
+    col_a, col_b = st.columns(2)
+    with col_a:
+        st.download_button(
+            "⬇️ Télécharger un exemple TXT",
+            data=make_example_txt(),
+            file_name="exemple_client.txt",
+            mime="text/plain",
+            use_container_width=True
+        )
+    with col_b:
+        st.download_button(
+            "⬇️ Télécharger un exemple DOCX",
+            data=make_example_docx(),
+            file_name="exemple_procedure.docx",
+            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            use_container_width=True
+        )
+st.caption("Formats acceptés : PDF, DOCX, TXT — limite 200 Mo par fichier.")
 uploaded_files = st.file_uploader(
     "Formats acceptés : PDF, DOCX, TXT",
     type=["pdf", "docx", "txt"],
