@@ -223,23 +223,27 @@ if uploaded_files:
         )
         st.stop()
 
-    # Vérification cohérence avec saisie (blocage strict + suggestion d'exemple)
-    if detected_client_names and not any(
-        client_name_input.lower() in name.lower() for name in detected_client_names
-    ):
-        st.error(
-            "🚨 Incohérence détectée : "
-            f"documents analysés pour {', '.join(detected_client_names)}, "
-            f"≠ nom saisi '{client_name_input}'.\n"
-            "Veuillez corriger le nom ou importer les bons documents."
-        )
-        st.download_button(
-            f"⬇️ Télécharger un exemple DOCX pour {client_name_input}",
-            data=make_correct_example_docx(client_name_input),
-            file_name=f"exemple_{client_name_input.replace(' ', '_')}.docx",
-            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-        )
-        st.stop()
+   
+# Vérification cohérence avec saisie (blocage strict)
+if detected_client_names and not any(
+    client_name_input.lower() in name.lower() for name in detected_client_names
+):
+    st.error(
+        "🚨 Incohérence détectée : "
+        f"documents analysés pour {', '.join(detected_client_names)}, "
+        f"≠ nom saisi '{client_name_input}'.\n"
+        "Veuillez corriger le nom ou importer les bons documents."
+    )
+
+    # Optionnel : proposer un fichier exemple correct
+    st.download_button(
+        f"⬇️ Télécharger un exemple DOCX pour {client_name_input}",
+        data=make_correct_example_docx(client_name_input),
+        file_name=f"exemple_{client_name_input.replace(' ', '_')}.docx",
+        mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    )
+
+    st.stop()  # ⛔ Stoppe immédiatement le script
 
 # --- Analyse IA des réponses audit ---
 responses = {}
