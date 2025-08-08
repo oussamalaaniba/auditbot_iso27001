@@ -16,10 +16,17 @@ import docx
 import plotly.express as px
 from openai import OpenAI
 from dotenv import load_dotenv
+import streamlit as st
 
 # --- Initialisation IA ---
-load_dotenv()
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+load_dotenv()  # Pour exécution locale
+OPENAI_API_KEY = st.secrets.get("OPENAI_API_KEY") or os.getenv("OPENAI_API_KEY")
+
+if not OPENAI_API_KEY:
+    st.error("🚨 Clé API OpenAI manquante. Ajoutez-la dans Settings → Secrets.")
+    st.stop()
+
+client = OpenAI(api_key=OPENAI_API_KEY)
 
 # --- Config & constantes ---
 OUTPUT_DIR = "data/output"
