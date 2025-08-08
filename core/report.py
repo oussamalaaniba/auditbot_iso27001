@@ -1,11 +1,17 @@
 from docx import Document
 from datetime import datetime
 import pandas as pd
+from pathlib import Path
 import os
+
+# Base directory du projet
+BASE_DIR = Path(__file__).resolve().parent.parent
+OUTPUT_DIR = BASE_DIR / "data" / "output"
+OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
 def generate_audit_report(
     nom_client="",
-    gap_analysis_file="data/output/gap_analysis.xlsx",
+    gap_analysis_file=OUTPUT_DIR / "gap_analysis.xlsx",
     output_file=None
 ):
     """
@@ -14,7 +20,7 @@ def generate_audit_report(
     """
 
     # Vérifier que la Gap Analysis existe
-    if not os.path.exists(gap_analysis_file):
+    if not Path(gap_analysis_file).exists():
         raise FileNotFoundError(f"❌ Fichier Gap Analysis introuvable : {gap_analysis_file}")
 
     # Charger la Gap Analysis depuis l’Excel
@@ -27,7 +33,7 @@ def generate_audit_report(
     # Définir le nom de sortie si pas fourni
     if not output_file:
         safe_client_name = nom_client.replace(" ", "_") if nom_client else "Audit"
-        output_file = f"data/output/rapport_audit_{safe_client_name}.docx"
+        output_file = OUTPUT_DIR / f"rapport_audit_{safe_client_name}.docx"
 
     # Créer le document Word
     doc = Document()
