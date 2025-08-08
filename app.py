@@ -200,10 +200,13 @@ if uploaded_files:
         st.error(f"⚠️ Plusieurs clients détectés dans les documents : {', '.join(detected_client_names)}")
         st.stop()
 
-    # Vérification cohérence avec saisie
-    if detected_client_names and not any(client_name_input.lower() in name.lower() for name in detected_client_names):
-        st.warning(f"⚠️ Les documents semblent appartenir à {', '.join(detected_client_names)}, et non à '{client_name_input}'.")
-
+    # Vérification cohérence avec saisie (blocage strict)
+    if detected_client_names and not any(client_name_input.lower() in name.lower()
+                                     for name in detected_client_names):
+        st.error(f"🚨 Incohérence détectée : documents analysés pour "
+             f"{', '.join(detected_client_names)}, ≠ nom saisi '{client_name_input}'.\n"
+             "Veuillez corriger le nom ou importer les bons documents.")
+        st.stop()
 # --- Analyse IA des réponses audit ---
 responses = {}
 if documents_text:
