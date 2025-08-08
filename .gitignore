@@ -1,0 +1,10 @@
+__pycache__/
+venv/
+.env
+.streamlit/secrets.toml
+data/output/
+*.xlsx
+*.docx
+*.pdf
+*.tmp
+.DS_Store

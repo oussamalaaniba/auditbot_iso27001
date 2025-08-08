@@ -1,0 +1,259 @@
+# --- Imports ---
+import streamlit as st
+from core.questions import ISO_QUESTIONS_INTERNE, ISO_QUESTIONS_MANAGEMENT
+from core.analysis import (
+    analyse_responses,
+    save_gap_analysis,
+    generate_action_plan_from_ai,
+    save_action_plan_to_excel
+)
+from core.report import generate_audit_report
+from utils.ai_helper import analyse_documents_with_ai
+import pandas as pd
+import os
+import fitz
+import docx
+import plotly.express as px
+from openai import OpenAI
+from dotenv import load_dotenv
+
+# --- Initialisation IA ---
+load_dotenv()
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+
+# --- Config & constantes ---
+OUTPUT_DIR = "data/output"
+os.makedirs(OUTPUT_DIR, exist_ok=True)
+st.set_page_config(page_title="AuditBot ISO 27001 - IA", layout="wide")
+
+# --- Sélection du mode d'audit ---
+st.title("🔍 Audit ISO 27001")
+
+if "audit_mode" not in st.session_state:
+    st.session_state.audit_mode = None
+
+col1, col2 = st.columns(2)
+with col1:
+    if st.button("🎯 Objectif : Audit interne"):
+        st.session_state.audit_mode = "interne"
+with col2:
+    if st.button("🏆 Objectif : Audit officiel / Pré-certification"):
+        st.session_state.audit_mode = "officiel"
+
+audit_mode = st.session_state.audit_mode
+
+if audit_mode == "interne":
+    ISO_QUESTIONS = ISO_QUESTIONS_INTERNE
+elif audit_mode == "officiel":
+    ISO_QUESTIONS = {**ISO_QUESTIONS_MANAGEMENT, **ISO_QUESTIONS_INTERNE}
+else:
+    st.warning("👆 Sélectionnez un objectif pour commencer l'audit.")
+    st.stop()
+
+# --- Nom du client ---
+client_name_input = st.text_input("🏢 Nom du client pour cet audit", placeholder="Exemple : D&A, CACEIS, Banque XYZ...")
+
+if not client_name_input:
+    st.warning("Veuillez indiquer le nom du client avant d'importer les documents.")
+    st.stop()
+
+# --- Fonctions extraction texte ---
+def extract_text_from_pdf(file):
+    text = ""
+    pdf = fitz.open(stream=file.read(), filetype="pdf")
+    for page in pdf:
+        text += page.get_text()
+    return text
+
+def extract_text_from_docx(file):
+    doc = docx.Document(file)
+    return "\n".join([para.text for para in doc.paragraphs])
+
+# --- Détection nom client via IA optimisée ---
+def detect_client_name_with_ai(text):
+    """
+    Utilise l'IA pour identifier l'organisation ou le client mentionné dans le document.
+    Analyse uniquement les premières lignes pour éviter les faux positifs et réduire le coût.
+    """
+    preview_text = text[:1500]  # Limite à 1500 caractères
+
+    prompt = f"""
+    Tu es un expert en audit ISO 27001.
+    Voici un extrait du début d'un document d'audit :
+    ---
+    {preview_text}
+    ---
+    À partir de cet extrait, identifie uniquement le NOM de l'organisation ou du client
+    auquel appartient ce document.
+
+    IMPORTANT :
+    - Ne donne pas d'explication.
+    - Ne réponds que par le nom détecté.
+    - Si tu n'es pas sûr ou que le nom n'apparaît pas clairement, réponds exactement "Inconnu".
+    """
+
+    try:
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0
+        )
+        return response.choices[0].message.content.strip()
+    except Exception as e:
+        print(f"Erreur détection IA : {e}")
+        return "Inconnu"
+
+# --- Upload documents ---
+st.subheader("📂 Importer documents du client")
+uploaded_files = st.file_uploader(
+    "Formats acceptés : PDF, DOCX, TXT",
+    type=["pdf", "docx", "txt"],
+    accept_multiple_files=True
+)
+
+documents_text = ""
+detected_client_names = set()
+
+if uploaded_files:
+    for file in uploaded_files:
+        # Extraction texte
+        if file.name.lower().endswith(".pdf"):
+            text = extract_text_from_pdf(file)
+        elif file.name.lower().endswith(".docx"):
+            text = extract_text_from_docx(file)
+        elif file.name.lower().endswith(".txt"):
+            text = file.read().decode("utf-8")
+        else:
+            text = ""
+
+        documents_text += text + "\n"
+
+        # Détection IA du nom client
+        detected_name = detect_client_name_with_ai(text)
+        if detected_name and detected_name != "Inconnu":
+            detected_client_names.add(detected_name)
+
+    # Vérification multi-clients
+    if len(detected_client_names) > 1:
+        st.error(f"⚠️ Plusieurs clients détectés dans les documents : {', '.join(detected_client_names)}")
+        st.stop()
+
+    # Vérification cohérence avec saisie
+    if detected_client_names and not any(client_name_input.lower() in name.lower() for name in detected_client_names):
+        st.warning(f"⚠️ Les documents semblent appartenir à {', '.join(detected_client_names)}, et non à '{client_name_input}'.")
+
+# --- Analyse IA des réponses audit ---
+responses = {}
+if documents_text:
+    st.info("📡 Analyse IA en cours...")
+    responses = analyse_documents_with_ai(documents_text, ISO_QUESTIONS, debug=True)
+    st.success("✅ Questionnaire pré-rempli par l'IA.")
+
+# --- Gap Analysis & Filtres ---
+if responses:
+    gap_analysis = analyse_responses(responses, nom_client=client_name_input)
+    save_gap_analysis(gap_analysis, nom_client=client_name_input)
+
+    df_gap = pd.DataFrame(gap_analysis)
+
+    if not df_gap.empty:
+        st.subheader("📊 Gap Analysis (vue interactive)")
+
+        # Filtres
+        domaines = ["Tous"] + sorted(df_gap["Domaine ISO 27001"].unique())
+        priorites = ["Toutes"] + sorted(df_gap["Priorité"].unique())
+
+        col1, col2 = st.columns(2)
+        with col1:
+            filtre_domaine = st.selectbox("📌 Filtrer par domaine", domaines)
+        with col2:
+            filtre_priorite = st.selectbox("⚡ Filtrer par priorité", priorites)
+
+        df_filtre = df_gap.copy()
+        if filtre_domaine != "Tous":
+            df_filtre = df_filtre[df_filtre["Domaine ISO 27001"] == filtre_domaine]
+        if filtre_priorite != "Toutes":
+            df_filtre = df_filtre[df_filtre["Priorité"] == filtre_priorite]
+
+        st.dataframe(df_filtre, use_container_width=True)
+
+        # Export Excel filtré
+        df_filtre.to_excel("data/output/gap_analysis_ui.xlsx", index=False)
+        st.download_button("📥 Télécharger Gap Analysis (Excel)",
+                           data=open("data/output/gap_analysis_ui.xlsx", "rb").read(),
+                           file_name="gap_analysis.xlsx")
+
+        # Graphique vert/rouge
+        if not df_filtre.empty:
+            statut_counts = df_filtre["Statut"].value_counts().reset_index()
+            statut_counts.columns = ["Statut", "Nombre"]
+
+            color_map = {
+                "Conforme": "#2ecc71",
+                "✅ Conforme": "#2ecc71",
+                "Non conforme": "#e74c3c",
+                "❌ Non conforme": "#e74c3c"
+            }
+
+            fig = px.pie(
+                statut_counts,
+                values="Nombre",
+                names="Statut",
+                title="Répartition par statut de conformité (selon filtre)",
+                color="Statut",
+                color_discrete_map=color_map
+            )
+            st.plotly_chart(fig, use_container_width=True)
+
+# --- Formulaire interactif ---
+with st.form("audit_form"):
+    final_responses = {}
+    for domain, questions in ISO_QUESTIONS.items():
+        st.subheader(f"📌 {domain}")
+        final_responses[domain] = {}
+        for q in questions:
+            clause = q.get("clause", "")
+            question_text = q["question"]
+            question_display = f"{clause} – {question_text}" if clause else question_text
+            answer_data = responses.get(domain, {}).get(question_text, "")
+
+            if isinstance(answer_data, dict):
+                reponse_simple = answer_data.get("Réponse", "")
+                new_answer = st.text_area(question_display, value=reponse_simple, key=f"{domain}_{clause}")
+                final_responses[domain][question_text] = {**answer_data, "Réponse": new_answer}
+            else:
+                new_answer = st.text_area(question_display, value=answer_data, key=f"{domain}_{clause}")
+                final_responses[domain][question_text] = new_answer
+
+    submitted = st.form_submit_button("📥 Générer l'analyse et le rapport")
+
+# --- Génération rapport & plan d'action ---
+if submitted:
+    # Sauvegarde des réponses finales
+    gap_analysis = analyse_responses(final_responses, nom_client=client_name_input)
+    save_gap_analysis(gap_analysis, nom_client=client_name_input)
+
+    # Génération rapport directement depuis l'Excel existant
+    report_path = generate_audit_report()
+
+    st.success("✅ Rapport généré avec succès !")
+    st.download_button("📄 Télécharger rapport Word",
+                       data=open(report_path, "rb").read(),
+                       file_name=os.path.basename(report_path))
+    st.download_button("📊 Télécharger Gap Analysis",
+                       data=open(os.path.join(OUTPUT_DIR, "gap_analysis.xlsx"), "rb").read(),
+                       file_name="gap_analysis.xlsx")
+
+    # Plan d’actions IA
+    action_plan = generate_action_plan_from_ai(gap_analysis, nom_client=client_name_input)
+    save_action_plan_to_excel(action_plan)
+
+    st.subheader("📅 Plan d’actions recommandé")
+    df_plan = pd.DataFrame(action_plan)
+    if not df_plan.empty:
+        st.dataframe(df_plan)
+        st.download_button("📥 Télécharger le plan d’actions (Excel)",
+                           data=open("data/output/action_plan.xlsx", "rb").read(),
+                           file_name="plan_actions.xlsx")
+    else:
+        st.info("✅ Aucun plan d’action nécessaire, tout est conforme.")
