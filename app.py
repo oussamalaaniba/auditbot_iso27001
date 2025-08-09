@@ -39,41 +39,37 @@ client = OpenAI(api_key=OPENAI_API_KEY)
 # --- En-tête ---
 st.title("🔍 Audit ISO 27001")
 
-# --- Sélection du mode d'audit ---
-if "audit_mode" not in st.session_state:
-    st.session_state.audit_mode = None
+# --- Sélection du mode d'audit (persistant) ---
+mode = st.radio(
+    "🎯 Objectif d'audit",
+    ["Audit interne", "Audit officiel / Pré-certification"],
+    horizontal=True,
+    index=0 if st.session_state.get("audit_mode", "interne") == "interne" else 1,
+    key="audit_mode_choice",
+)
 
-col1, col2 = st.columns(2)
-with col1:
-    if st.button("🎯 Objectif : Audit interne"):
-        st.session_state.audit_mode = "interne"
-with col2:
-    if st.button("🏆 Objectif : Audit officiel / Pré-certification"):
-        st.session_state.audit_mode = "officiel"
-
+# Persistance claire en session_state
+st.session_state.audit_mode = "interne" if mode == "Audit interne" else "officiel"
 audit_mode = st.session_state.audit_mode
 
-if audit_mode == "interne":
-    ISO_QUESTIONS = ISO_QUESTIONS_INTERNE
-elif audit_mode == "officiel":
-    ISO_QUESTIONS = {**ISO_QUESTIONS_MANAGEMENT, **ISO_QUESTIONS_INTERNE}
-else:
-    st.warning("👆 Sélectionnez un objectif pour commencer l'audit.")
-    st.stop()
+# Préparer les questions selon le mode
+ISO_QUESTIONS = ISO_QUESTIONS_INTERNE if audit_mode == "interne" else {**ISO_QUESTIONS_MANAGEMENT, **ISO_QUESTIONS_INTERNE}
 
-# --- Nom du client ---
+# --- Nom du client (ne bloque pas le choix du mode) ---
 client_name_input = st.text_input(
     "🏢 Nom du client pour cet audit",
-    placeholder="Exemple : D&A, CACEIS, Banque XYZ..."
+    placeholder="Exemple : D&A, CACEIS, Banque XYZ...",
+    key="client_name",
 ).strip()
 
+# Feedback visuel
 if client_name_input:
-    st.success(
-        f"Client sélectionné : **{client_name_input}** "
-        "(appuyez sur Enter pour valider si le champ reste rouge)"
-    )
+    st.success(f"Client sélectionné : **{client_name_input}**")
 else:
-    st.warning("Veuillez indiquer le nom du client avant d'importer les documents.")
+    st.info("➡️ Indiquez le nom du client pour activer l’import des documents.")
+
+# 🚦 Garde-fou : on n’active la suite (upload/analyse) que si le nom est fourni
+if not client_name_input:
     st.stop()
 
 # --- Fonctions extraction texte ---
