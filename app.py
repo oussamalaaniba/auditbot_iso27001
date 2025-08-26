@@ -41,6 +41,32 @@ BASE_DIR = Path(__file__).resolve().parent
 OUTPUT_DIR = BASE_DIR / "data" / "output"
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
+import base64
+
+# --- Fonction pour charger une image en arrière-plan ---
+def add_bg_from_local(image_file):
+    with open(image_file, "rb") as f:
+        data = f.read()
+    encoded = base64.b64encode(data).decode()
+    st.markdown(
+        f"""
+        <style>
+        .stApp {{
+            background-image: url("data:image/png;base64,{encoded}");
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            background-attachment: fixed;
+        }}
+        </style>
+        """,
+        unsafe_allow_html=True
+    )
+
+# --- Appel de la fonction ---
+add_bg_from_local("bg.png")
+
+
 # --- Helpers Clé OpenAI (robuste .env -> st.secrets) ---
 def get_openai_api_key() -> Optional[str]:
     try:
@@ -238,18 +264,153 @@ def go(route: str):
     st.session_state["route"] = route
     st.rerun()
 
+# --- Styles globaux (cartes + boutons + layout) ---
+HOME_CSS = """
+<style>
+/* --- HERO --- */
+.hero { 
+  text-align:center; 
+  margin: 1.6rem auto 1.2rem; 
+}
+.hero h1 { 
+  font-size: 2.2rem; 
+  font-weight: 800; 
+  color: #ffffff;                           /* blanc */
+  text-shadow: 0 2px 6px rgba(0,0,0,0.7);   /* lisible */
+}
+.hero p { 
+  color:#ffffff;                            /* blanc */
+  font-size:1.05rem; 
+  text-shadow: 0 2px 6px rgba(0,0,0,0.7);
+  margin: .3rem 0 0 0;
+}
+
+/* --- SECTIONS ISO / ANSSI centrées --- */
+.card { 
+  background: transparent !important; 
+  border:none !important; 
+  box-shadow:none !important; 
+  text-align:center; 
+  color:#f8fafc;
+}
+.card h3 { 
+  color:#ffffff; 
+  font-size:1.4rem; 
+  font-weight:800; 
+  text-shadow: 0 2px 6px rgba(0,0,0,0.6);
+  margin-bottom:.35rem;
+}
+.card .meta { 
+  color:#e5e7eb; 
+  font-size:.95rem; 
+  margin-bottom:.3rem;
+  text-shadow: 0 1px 3px rgba(0,0,0,0.55);
+}
+.card ul { 
+  display:inline-block; 
+  text-align:left; 
+  margin:.4rem auto .8rem auto; 
+  color:#f3f4f6;
+  text-shadow: 0 1px 3px rgba(0,0,0,0.6);
+}
+
+/* --- BOUTONS compacts --- */
+.stButton button {
+  display:inline-block;       /* largeur auto */
+  border-radius: 8px;
+  padding: .45rem 1.1rem;     /* plus petits */
+  font-size: .95rem;
+  font-weight: 600;
+  color: #fff;
+  background: linear-gradient(90deg,#2563eb,#06b6d4);
+  border: none;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.4);
+}
+.stButton button:hover {
+  background: linear-gradient(90deg,#1e40af,#0e7490);
+  transform: translateY(-1px);
+}
+</style>
+"""
+
+
+
+
+
+
 def render_home():
-    st.title("🧭 Audit Assistant")
-    st.caption("Choisissez un référentiel")
-    col1, col2 = st.columns(2)
+    import streamlit as st
+    st.markdown(HOME_CSS, unsafe_allow_html=True)
+
+    # --- HERO ---
+    with st.container():
+        st.markdown(
+            """
+            <div class="hero">
+              <h1 style="margin: 0.4rem 0 0.3rem 0;">🧭 Audit Assistant</h1>
+              <p style="color:margin; font-size:1.02rem; margin:0;">
+                Centralisez vos audits, comparez vos pratiques aux référentiels, générez des plans d’actions et des rapports en un clic.
+              </p>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
+
+    # --- CARTES (2 colonnes) ---
+    col1, col2 = st.columns(2, gap="large")
+
     with col1:
-        st.subheader("ISO/IEC 27001")
-        st.write("Audit & Gap Analysis (page existante).")
-        st.button("▶️ Entrer", key="home_go_iso", on_click=lambda: go("iso27001"))
+        st.markdown(
+            """
+            <div class="card">
+              <h3>ISO/IEC 27001</h3>
+              <div class="meta">Audit & Gap Analysis</div>
+              <div class="tagwrap">
+                <span class="tag">Annex A</span>
+                <span class="tag">Risk-based</span>
+                <span class="tag">Action plan</span>
+                <span class="tag">Report PDF</span>
+              </div>
+              <ul>
+                <li>Questionnaires adaptés (interne / pré-certif).</li>
+                <li>Analyse des écarts + scoring.</li>
+                <li>Recommandations priorisées (RACI/ échéances).</li>
+              </ul>
+              <div class="cta">
+                <!-- le bouton réel est en dessous -->
+              </div>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
+        st.button("▶️ Entrer dans ISO 27001", key="home_go_iso", use_container_width=True, on_click=lambda: go("iso27001"))
+
     with col2:
-        st.subheader("ANSSI – Guide d’hygiène")
-        st.write("42 mesures en 10 thèmes (nouvelle section).")
-        st.button("▶️ Entrer", key="home_go_anssi", on_click=lambda: go("anssi_hygiene"))
+        st.markdown(
+            """
+            <div class="card">
+              <h3>ANSSI – Guide d’hygiène</h3>
+              <div class="meta">42 mesures • 10 thèmes</div>
+              <div class="tagwrap">
+                <span class="tag">Organisation</span>
+                <span class="tag">Protection</span>
+                <span class="tag">Détection</span>
+                <span class="tag">Résilience</span>
+              </div>
+              <ul>
+                <li>Auto-évaluation par thème et mesure.</li>
+                <li>Score de maturité & priorités.</li>
+                <li>Plan d’amélioration continue.</li>
+              </ul>
+              <div class="cta"></div>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
+        st.button("▶️ Entrer dans ANSSI Hygiène", key="home_go_anssi", use_container_width=True, on_click=lambda: go("anssi_hygiene"))
+
+    
+
 
 # -------------------- ANSSI PAGE -------------------- #
 def render_anssi_hygiene():
