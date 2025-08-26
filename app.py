@@ -262,7 +262,6 @@ if "route" not in st.session_state:
 
 def go(route: str):
     st.session_state["route"] = route
-    st.rerun()
 
 # --- Styles globaux (cartes + boutons + layout) ---
 HOME_CSS = """
