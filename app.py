@@ -314,20 +314,26 @@ HOME_CSS = """
 }
 
 /* --- BOUTONS compacts --- */
+div.stButton {
+  text-align: center;   /* centre le contenu dans la colonne */
+}
+
 .stButton button {
-  display:inline-block;       /* largeur auto */
-  border-radius: 8px;
-  padding: .45rem 1.1rem;     /* plus petits */
-  font-size: .95rem;
-  font-weight: 600;
-  color: #fff;
-  background: linear-gradient(90deg,#2563eb,#06b6d4);
-  border: none;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.4);
+  display: block !important; 
+  margin: 0 auto !important;   /* ← centre le bouton lui-même */
+  width: auto !important; 
+  border-radius: 8px !important;
+  padding: .45rem .9rem !important;
+  font-size: .95rem !important;
+  font-weight: 600 !important;
+  color: #ffffff !important;
+  background: #000000 !important;
+  border: none !important;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.4) !important;
 }
 .stButton button:hover {
-  background: linear-gradient(90deg,#1e40af,#0e7490);
-  transform: translateY(-1px);
+  background: #1a1a1a !important;
+  transform: translateY(-1px) !important;
 }
 </style>
 """
