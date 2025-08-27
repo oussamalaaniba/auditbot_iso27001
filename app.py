@@ -1051,7 +1051,7 @@ IMPORTANT :
                     )
                     final_responses[domain][question_text] = new_answer
 
-        submitted = st.form_submit_button("📥 Générer l'analyse et le rapport", key="iso_submit")
+        submitted = st.form_submit_button("📥 Générer l'analyse et le rapport")
 
     if submitted:
         gap_analysis = analyse_responses(final_responses, nom_client=client_name_input)
