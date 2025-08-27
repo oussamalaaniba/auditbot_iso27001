@@ -3,7 +3,7 @@ import os
 from pathlib import Path
 from io import BytesIO
 import io
-from typing import Optional, Dict, List
+from typing import Optional, Dict, List, Tuple
 
 import streamlit as st
 import pandas as pd
@@ -13,6 +13,9 @@ import docx
 import json
 from dotenv import load_dotenv
 from openai import OpenAI
+import base64
+import hashlib
+import re
 
 # ISO 27001 (existant)
 from core.questions import ISO_QUESTIONS_INTERNE, ISO_QUESTIONS_MANAGEMENT
@@ -41,64 +44,205 @@ BASE_DIR = Path(__file__).resolve().parent
 OUTPUT_DIR = BASE_DIR / "data" / "output"
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
-import base64
+# --- Fond d'écran (optionnel) ---
+def add_bg_from_local(image_file: str):
+    try:
+        with open(image_file, "rb") as f:
+            data = f.read()
+        encoded = base64.b64encode(data).decode()
+        st.markdown(
+            f"""
+            <style>
+            .stApp {{
+                background-image: url("data:image/png;base64,{encoded}");
+                background-size: cover;
+                background-position: center;
+                background-repeat: no-repeat;
+                background-attachment: fixed;
+            }}
+            </style>
+            """,
+            unsafe_allow_html=True
+        )
+    except Exception:
+        pass
 
-# --- Fonction pour charger une image en arrière-plan ---
-def add_bg_from_local(image_file):
-    with open(image_file, "rb") as f:
-        data = f.read()
-    encoded = base64.b64encode(data).decode()
-    st.markdown(
-        f"""
-        <style>
-        .stApp {{
-            background-image: url("data:image/png;base64,{encoded}");
-            background-size: cover;
-            background-position: center;
-            background-repeat: no-repeat;
-            background-attachment: fixed;
-        }}
-        </style>
-        """,
-        unsafe_allow_html=True
-    )
-
-# --- Appel de la fonction ---
-add_bg_from_local("bg.png")
-
+if (BASE_DIR / "bg.png").exists():
+    add_bg_from_local(str(BASE_DIR / "bg.png"))
 
 # --- Helpers Clé OpenAI (robuste .env -> st.secrets) ---
 def get_openai_api_key() -> Optional[str]:
-    try:
-        load_dotenv()
-    except Exception:
-        pass
+    try: load_dotenv()
+    except Exception: pass
     key = os.getenv("OPENAI_API_KEY")
-    if key:
-        return key
-    try:
-        return st.secrets["OPENAI_API_KEY"]
-    except Exception:
-        return None
+    if key: return key
+    try: return st.secrets["OPENAI_API_KEY"]
+    except Exception: return None
 
 def get_openai_client() -> Optional[OpenAI]:
     key = get_openai_api_key()
-    if not key:
-        return None
-    try:
-        return OpenAI(api_key=key)
-    except Exception:
-        return None
+    if not key: return None
+    try: return OpenAI(api_key=key)
+    except Exception: return None
 
-# --- Générateur de questions avancées (ANSSI) ---
+# =========================================================
+#   Uploader GLOBAL (persistant + réutilisable partout)
+# =========================================================
+def _init_uploaded_docs_state():
+    st.session_state.setdefault("uploaded_docs", [])  # [{name, bytes, size, sha1}]
+
+def _file_sha1(b: bytes) -> str:
+    return hashlib.sha1(b).hexdigest()
+
+def _extract_text_from_pdf_bytes(b: bytes) -> str:
+    try:
+        pdf = fitz.open(stream=b, filetype="pdf")
+        return "\n".join([p.get_text("text") for p in pdf])
+    except Exception:
+        return ""
+
+def _extract_text_from_docx_bytes(b: bytes) -> str:
+    try:
+        d = docx.Document(io.BytesIO(b))
+        return "\n".join(p.text for p in d.paragraphs if p.text)
+    except Exception:
+        return ""
+
+def render_global_uploader():
+    """Affiche un uploader réutilisable sur toutes les pages/onglets.
+    Les fichiers sont mémorisés et réutilisables pour l'IA/RAG."""
+    _init_uploaded_docs_state()
+    with st.expander("📎 Documents d'appui (uploader global) — visibles partout", expanded=True):
+        new_files = st.file_uploader(
+            "Ajouter des documents (PDF/DOCX/TXT/PNG/JPG) pour enrichir l'analyse (RAG)",
+            type=["pdf", "docx", "txt", "png", "jpg", "jpeg"],
+            accept_multiple_files=True,
+            key="global_uploader",
+            help="Les documents ajoutés ici restent disponibles sur toutes les pages."
+        )
+        if new_files:
+            added = 0
+            for f in new_files:
+                data = f.read()
+                sig = _file_sha1(data)
+                if not any(item.get("sha1") == sig for item in st.session_state["uploaded_docs"]):
+                    st.session_state["uploaded_docs"].append({
+                        "name": f.name,
+                        "bytes": data,
+                        "size": len(data),
+                        "sha1": sig,
+                    })
+                    added += 1
+            if added:
+                st.success(f"{added} document(s) ajouté(s).")
+
+        if st.session_state["uploaded_docs"]:
+            st.caption("Documents mémorisés :")
+            for i, item in enumerate(st.session_state["uploaded_docs"], start=1):
+                col1, col2, col3 = st.columns([6, 2, 2])
+                with col1:
+                    st.write(f"{i}. **{item['name']}** — {round(item['size']/1024, 1)} KB")
+                with col2:
+                    st.download_button(
+                        "Télécharger",
+                        data=item["bytes"],
+                        file_name=item["name"],
+                        key=f"dl_{item['sha1']}"
+                    )
+                with col3:
+                    if st.button("Retirer", key=f"rm_{item['sha1']}"):
+                        st.session_state["uploaded_docs"] = [
+                            x for x in st.session_state["uploaded_docs"] if x["sha1"] != item["sha1"]
+                        ]
+                        st.rerun()
+
+def get_uploaded_docs_bytes() -> List[Tuple[str, bytes]]:
+    _init_uploaded_docs_state()
+    return [(x["name"], x["bytes"]) for x in st.session_state["uploaded_docs"]]
+
+def get_uploaded_docs_text(truncate: int = 16000) -> str:
+    """Concatène le texte des documents uploadés (PDF/DOCX/TXT)."""
+    _init_uploaded_docs_state()
+    texts: List[str] = []
+    for item in st.session_state["uploaded_docs"]:
+        name = item["name"].lower()
+        b = item["bytes"]
+        if name.endswith(".pdf"):
+            texts.append(_extract_text_from_pdf_bytes(b))
+        elif name.endswith(".docx"):
+            texts.append(_extract_text_from_docx_bytes(b))
+        elif name.endswith(".txt"):
+            try:
+                texts.append(b.decode("utf-8", errors="ignore"))
+            except Exception:
+                pass
+    return ("\n\n".join(texts))[:truncate]
+
+# =========================================================
+#   Nettoyage sorties IA (pas de JSON affiché)
+# =========================================================
+def ensure_plain_text(s: str) -> str:
+    """Supprime fences ```...``` et convertit un éventuel JSON simple en texte clair FR."""
+    if not isinstance(s, str):
+        return str(s)
+    s2 = re.sub(r"```(?:json|JSON)?\s*", "", s)
+    s2 = s2.replace("```", "").strip()
+    # tenter JSON -> texte
+    try:
+        obj = json.loads(s2)
+        parts: List[str] = []
+        if isinstance(obj, dict):
+            if "status" in obj: parts.append(f"**Statut** : {obj['status']}")
+            if "justification" in obj and obj.get("justification"):
+                parts.append(f"**Justification** : {obj['justification']}")
+            if "recommandations" in obj and isinstance(obj["recommandations"], list):
+                parts.append("**Recommandations :**\n- " + "\n- ".join(map(str, obj["recommandations"])))
+            if "actions_top3" in obj and isinstance(obj["actions_top3"], list):
+                parts.append("**Actions prioritaires :**\n- " + "\n- ".join(map(str, obj["actions_top3"])))
+            if not parts:
+                for k, v in obj.items():
+                    if isinstance(v, list):
+                        parts.append(f"{k} :\n- " + "\n- ".join(map(str, v)))
+                    else:
+                        parts.append(f"{k} : {v}")
+            return "\n\n".join(parts)
+        if isinstance(obj, list):
+            lines: List[str] = []
+            for it in obj:
+                if isinstance(it, dict):
+                    line = ", ".join([f"{k}={v}" for k, v in it.items()])
+                    lines.append(f"- {line}")
+                else:
+                    lines.append(f"- {it}")
+            return "\n".join(lines)
+    except Exception:
+        pass
+    return s2
+
+def parse_status_from_text(txt: str) -> Optional[str]:
+    """Détecte un statut dans un texte libre si présent (Conforme/Partiellement conforme/Non conforme/Pas réponse)."""
+    t = txt.lower()
+    for s in STATUSES:
+        if s.lower() in t:
+            return s
+    # formats 'statut: conforme'
+    m = re.search(r"statut\s*[:\-]\s*(conforme|partiellement conforme|non conforme|pas réponse)", t)
+    if m:
+        val = m.group(1).strip()
+        # normaliser casse
+        for s in STATUSES:
+            if s.lower() == val:
+                return s
+    return None
+
+# =========================================================
+#   Générateur de questions avancées (ANSSI)
+# =========================================================
 def _mk_bullets(items: List[str]) -> str:
     return "\n".join([f"- {it}" for it in items])
 
 def _to_question_fr(exigence: str, theme: Optional[str] = None) -> str:
-    """
-    Transforme une exigence ANSSI en question pro et actionnable,
-    avec une mini-checklist d’éléments attendus.
-    """
+    """Transforme une exigence ANSSI en question pro et actionnable, avec mini-checklist."""
     if not exigence:
         return ""
     txt = exigence.strip()
@@ -107,7 +251,6 @@ def _to_question_fr(exigence: str, theme: Optional[str] = None) -> str:
     def block(title: str, bullets: List[str]) -> str:
         return f"**{title}**\n\nPoints attendus :\n{_mk_bullets(bullets)}"
 
-    # Heuristiques par famille (mots-clés)
     if any(k in low for k in ["sauvegard", "backup", "restaur"]):
         return block(
             "Comment l’organisation assure les sauvegardes et la restauration ?",
@@ -119,7 +262,6 @@ def _to_question_fr(exigence: str, theme: Optional[str] = None) -> str:
                 "Supervision des échecs/écarts et plan PRA/PCA."
             ]
         )
-
     if any(k in low for k in ["journalis", "log", "siem", "collecte", "traces"]):
         return block(
             "Comment la journalisation et la détection d’incidents sont réalisées ?",
@@ -127,308 +269,157 @@ def _to_question_fr(exigence: str, theme: Optional[str] = None) -> str:
                 "Sources collectées (Systèmes, Réseau, Cloud, SaaS, EDR).",
                 "Normalisation, horodatage (NTP), intégrité et rétention.",
                 "SIEM/SOAR : cas d’usage, corrélation, priorisation.",
-                "Alerting, triage, MTTD/MTTR, escalade et couverture 24/7 (si applicable).",
-                "Preuves : tableaux de bord, rapports, exemples d’incidents traités."
+                "Alerting, triage, MTTD/MTTR, escalade et couverture 24/7.",
+                "Preuves : tableaux de bord, rapports, incidents traités."
             ]
         )
-
     if any(k in low for k in ["surveill", "monitor", "supervis"]):
         return block(
             "Comment l’organisation supervise ses actifs et services critiques ?",
             [
                 "Portée (on-prem, Cloud, réseaux, applicatifs).",
-                "Seuils d’alerte, notifications et gestion des faux positifs.",
+                "Seuils d’alerte, notifications, gestion des faux positifs.",
                 "Runbooks / procédures d’exploitation et d’escalade.",
                 "Criticité métier, priorisation des actions.",
-                "Preuves : incidents, métriques SLO/SLA, rapports d’astreinte."
+                "Preuves : SLO/SLA, rapports d’astreinte."
             ]
         )
-
     if any(k in low for k in ["authentifi", "mfa", "sso", "idm", "idp", "identit"]):
         return block(
             "Comment l’authentification et la gestion des identités sont mises en œuvre ?",
             [
-                "SSO/IdP, MFA obligatoire (périmètre, exceptions, BYOD).",
+                "SSO/IdP, MFA (périmètre, exceptions, BYOD).",
                 "Comptes à privilèges (PAM/JIT/JEA), séparation des tâches.",
-                "Processus Joiner/Mover/Leaver et recertification périodique.",
-                "Stockage des identités (réplication, sécurité, logs).",
-                "Preuves : politiques IAM, preuves MFA, campagnes de revue d’accès."
+                "Joiner/Mover/Leaver et recertification périodique.",
+                "Stockage, logs IAM et accès tiers.",
+                "Preuves : politiques, preuves MFA, campagnes de revue d’accès."
             ]
         )
-
     if any(k in low for k in ["autoriser", "habilit", "accès", "rbac", "abac", "droits"]):
         return block(
             "Comment les autorisations et les habilitations sont gouvernées ?",
             [
-                "Modèle RBAC/ABAC, rôles standard et rôles sensibles.",
+                "Modèle RBAC/ABAC, rôles standard et sensibles.",
                 "Demandes/approbations tracées (tickets, workflows).",
-                "Revues d’accès périodiques (périmètre, preuves, écarts).",
-                "Gestion des accès tiers et comptes techniques.",
+                "Revues d’accès périodiques et preuves.",
+                "Accès tiers et comptes techniques.",
                 "Preuves : matrices d’habilitation, PV de recertification."
             ]
         )
-
     if any(k in low for k in ["chiffr", "tls", "https", "kms", "hsm", "clé", "certificat"]):
         return block(
             "Quels mécanismes de chiffrement et de gestion de clés sont en place ?",
             [
-                "Données en transit (TLS) et au repos (disk/db), algorithmes et niveaux.",
+                "Données en transit et au repos (algorithmes/tailles).",
                 "KMS/HSM : génération, rotation, révocation, séparation des rôles.",
-                "Gestion du cycle de vie des certificats (inventaire, alerte d’expiration).",
-                "Conformité aux exigences réglementaires (ex. RGPD, ANSSI).",
-                "Preuves : inventaires clés/certificats, politiques cryptographiques."
+                "Cycle de vie des certificats (inventaire, alerte expirations).",
+                "Conformité (RGPD, ANSSI, secteur).",
+                "Preuves : inventaires, politiques cryptographiques."
             ]
         )
-
-    if any(k in low for k in ["mettre à jour", "mise à jour", "patch", "correctif", "vulnér", "vulner"]):
+    if any(k in low for k in ["mise à jour", "mettre à jour", "patch", "correctif", "vulnér", "vulner"]):
         return block(
             "Comment la gestion des vulnérabilités et des correctifs est organisée ?",
             [
                 "Inventaire des actifs et classification (criticité).",
-                "SLA d’application des patchs selon la sévérité (ex. CVSS).",
-                "Outillage (WSUS/MDM/Ansible/Intune), fenêtres de maintenance.",
-                "Scans réguliers, supervision des échecs, exemptions documentées.",
-                "Preuves : rapports de scan, tableaux de bord de patching."
+                "SLA d’application des patchs (CVSS).",
+                "Outillage (WSUS/Intune/Ansible), maintenance windows.",
+                "Scans réguliers, exemptions documentées.",
+                "Preuves : rapports de scan, tableaux de bord."
             ]
         )
-
-    if any(k in low for k in ["protéger", "durciss", "edr", "xdr", "antivirus", "pare-feu", "firewall", "waf", "endpoint"]):
+    if any(k in low for k in ["durciss", "edr", "xdr", "antivirus", "pare-feu", "firewall", "waf", "endpoint"]):
         return block(
             "Quels contrôles de protection et de durcissement sont déployés ?",
             [
-                "Standards de durcissement (CIS, ANSSI), conformité des hôtes.",
-                "EDR/XDR : couverture, politiques, réponse automatique.",
-                "Protection email/web (sandbox, anti-phishing, DMARC/DKIM/SPF).",
-                "Pare-feu/WAF/NAC : règles, revues et exceptions.",
-                "Preuves : rapports de conformité, inventaire des contrôles actifs."
+                "Standards de durcissement (CIS/ANSSI).",
+                "EDR/XDR : couverture, politiques, réponses auto.",
+                "Protection email/web (anti-phishing, DMARC/DKIM/SPF).",
+                "Pare-feu/WAF/NAC, revues et exceptions.",
+                "Preuves : rapports de conformité, inventaires."
             ]
         )
-
-    if any(k in low for k in ["séparer", "segmen", "dmz", "vlan", "microsegment"]):
+    if any(k in low for k in ["segmen", "dmz", "vlan", "microsegment"]):
         return block(
             "Comment la segmentation réseau et la maîtrise des flux sont assurées ?",
             [
-                "Zonage (utilisateurs, serveurs, admin, DMZ), micro-segmentation.",
-                "Contrôle Est-Ouest vs Nord-Sud, règles minimales nécessaires.",
-                "Découverte et cartographie des flux (CMDB, scanners).",
-                "NAC/802.1X, filtrage L3/L7, revue régulière des règles.",
-                "Preuves : diagrammes à jour, exports de règles, PV de revue."
+                "Zonage (utilisateurs, serveurs, admin, DMZ).",
+                "Est-Ouest vs Nord-Sud, règles minimales nécessaires.",
+                "Cartographie des flux (CMDB, scanners).",
+                "NAC/802.1X, revues régulières.",
+                "Preuves : diagrammes, exports de règles."
             ]
         )
-
-    if any(k in low for k in ["documenter", "définir", "formaliser", "politique", "procédure"]):
+    if any(k in low for k in ["documenter", "formaliser", "politique", "procédure"]):
         return block(
             "La gouvernance (politiques & procédures) couvre-t-elle l’exigence ?",
             [
-                "Portée, responsabilités (RACI) et sponsors.",
-                "Versioning, validation, diffusion et contrôle d’application.",
+                "Portée, responsabilités (RACI), sponsors.",
+                "Versioning, validation, diffusion, contrôle d’application.",
                 "Indicateurs de conformité et revues périodiques.",
-                "Alignement référentiel (ANSSI/ISO) et exigences légales.",
-                "Preuves : documents approuvés, registre des dérogations."
+                "Alignement référentiel/loi, dérogations.",
+                "Preuves : documents approuvés, registre de dérogations."
             ]
         )
-
-    if any(k in low for k in ["inventaire", "recenser", "actif", "cmdb", "patrimoine"]):
+    if any(k in low for k in ["inventaire", "cmdb", "actif", "patrimoine"]):
         return block(
             "Comment les actifs sont inventoriés et tenus à jour ?",
             [
-                "CMDB/inventaire : couverture, champs (owner, criticité, data).",
-                "Découverte automatique vs déclaration manuelle.",
+                "CMDB : couverture, champs (owner, criticité, data).",
+                "Découverte auto vs déclaration manuelle.",
                 "Cycle de vie (acquisition → retrait), EOL/EOS.",
                 "Traçabilité des changements (ITSM), audits.",
                 "Preuves : exports CMDB, rapports d’écarts."
             ]
         )
-
-    # Par défaut : question générique mais professionnelle
     return block(
         f"Comment l’organisation adresse l’exigence suivante : « {txt} » ?",
         [
             "Gouvernance (rôles, politiques, décision).",
-            "Processus (flux, approbations, SLA, exceptions).",
-            "Contrôles techniques (outils, couverture, paramètres).",
+            "Processus (SLA, approbations, exceptions).",
+            "Contrôles techniques (outils, paramètres).",
             "Indicateurs (KPI/KRI), supervision et alerting.",
-            "Preuves disponibles (documents, journaux, tickets)."
+            "Preuves disponibles (docs, journaux, tickets)."
         ]
     )
 
 # =========================================================
-#                     ROUTER + PAGES
+#                     ROUTER + HOME
 # =========================================================
-
-# --- Router minimal (Home / ISO27001 / ANSSI) ---
 if "route" not in st.session_state:
     st.session_state["route"] = "home"
 
 def go(route: str):
     st.session_state["route"] = route
 
-# --- Styles globaux (cartes + boutons + layout) ---
-HOME_CSS = """
-<style>
-/* --- HERO --- */
-.hero { 
-  text-align:center; 
-  margin: 1.6rem auto 1.2rem; 
-}
-.hero h1 { 
-  font-size: 2.2rem; 
-  font-weight: 800; 
-  color: #ffffff;                           /* blanc */
-  text-shadow: 0 2px 6px rgba(0,0,0,0.7);   /* lisible */
-}
-.hero p { 
-  color:#ffffff;                            /* blanc */
-  font-size:1.05rem; 
-  text-shadow: 0 2px 6px rgba(0,0,0,0.7);
-  margin: .3rem 0 0 0;
-}
-
-/* --- SECTIONS ISO / ANSSI centrées --- */
-.card { 
-  background: transparent !important; 
-  border:none !important; 
-  box-shadow:none !important; 
-  text-align:center; 
-  color:#f8fafc;
-}
-.card h3 { 
-  color:#ffffff; 
-  font-size:1.4rem; 
-  font-weight:800; 
-  text-shadow: 0 2px 6px rgba(0,0,0,0.6);
-  margin-bottom:.35rem;
-}
-.card .meta { 
-  color:#e5e7eb; 
-  font-size:.95rem; 
-  margin-bottom:.3rem;
-  text-shadow: 0 1px 3px rgba(0,0,0,0.55);
-}
-.card ul { 
-  display:inline-block; 
-  text-align:left; 
-  margin:.4rem auto .8rem auto; 
-  color:#f3f4f6;
-  text-shadow: 0 1px 3px rgba(0,0,0,0.6);
-}
-
-/* --- BOUTONS compacts --- */
-div.stButton {
-  text-align: center;   /* centre le contenu dans la colonne */
-}
-
-.stButton button {
-  display: block !important; 
-  margin: 0 auto !important;   /* ← centre le bouton lui-même */
-  width: auto !important; 
-  border-radius: 8px !important;
-  padding: .45rem .9rem !important;
-  font-size: .95rem !important;
-  font-weight: 600 !important;
-  color: #ffffff !important;
-  background: #000000 !important;
-  border: none !important;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.4) !important;
-}
-.stButton button:hover {
-  background: #1a1a1a !important;
-  transform: translateY(-1px) !important;
-}
-</style>
-"""
-
-
-
-
-
-
 def render_home():
-    import streamlit as st
-    st.markdown(HOME_CSS, unsafe_allow_html=True)
-
-    # --- HERO ---
-    with st.container():
-        st.markdown(
-            """
-            <div class="hero">
-              <h1 style="margin: 0.4rem 0 0.3rem 0;">🧭 Audit Assistant</h1>
-              <p style="color:margin; font-size:1.02rem; margin:0;">
-                Centralisez vos audits, comparez vos pratiques aux référentiels, générez des plans d’actions et des rapports en un clic.
-              </p>
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
-
-    # --- CARTES (2 colonnes) ---
-    col1, col2 = st.columns(2, gap="large")
-
+    st.title("🧭 Audit Assistant")
+    st.caption("Centralisez vos audits, comparez vos pratiques, générez plans d’actions et rapports.")
+    col1, col2 = st.columns(2)
     with col1:
-        st.markdown(
-            """
-            <div class="card">
-              <h3>ISO/IEC 27001</h3>
-              <div class="meta">Audit & Gap Analysis</div>
-              <div class="tagwrap">
-                <span class="tag">Annex A</span>
-                <span class="tag">Risk-based</span>
-                <span class="tag">Action plan</span>
-                <span class="tag">Report PDF</span>
-              </div>
-              <ul>
-                <li>Questionnaires adaptés (interne / pré-certif).</li>
-                <li>Analyse des écarts + scoring.</li>
-                <li>Recommandations priorisées (RACI/ échéances).</li>
-              </ul>
-              <div class="cta">
-                <!-- le bouton réel est en dessous -->
-              </div>
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
+        st.subheader("ISO/IEC 27001")
+        st.write("- Questionnaires (interne / pré-certif)\n- Gap Analysis + priorités\n- Rapport prêt à partager")
         st.button("▶️ Entrer dans ISO 27001", key="home_go_iso", use_container_width=True, on_click=lambda: go("iso27001"))
-
     with col2:
-        st.markdown(
-            """
-            <div class="card">
-              <h3>ANSSI – Guide d’hygiène</h3>
-              <div class="meta">42 mesures • 10 thèmes</div>
-              <div class="tagwrap">
-                <span class="tag">Organisation</span>
-                <span class="tag">Protection</span>
-                <span class="tag">Détection</span>
-                <span class="tag">Résilience</span>
-              </div>
-              <ul>
-                <li>Auto-évaluation par thème et mesure.</li>
-                <li>Score de maturité & priorités.</li>
-                <li>Plan d’amélioration continue.</li>
-              </ul>
-              <div class="cta"></div>
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
+        st.subheader("ANSSI – Guide d’hygiène")
+        st.write("- Auto-évaluation par thèmes/mesures\n- Score de maturité & quick-wins\n- Export CSV")
         st.button("▶️ Entrer dans ANSSI Hygiène", key="home_go_anssi", use_container_width=True, on_click=lambda: go("anssi_hygiene"))
 
-    
-
-
-# -------------------- ANSSI PAGE -------------------- #
+# =========================================================
+#                      ANSSI PAGE
+# =========================================================
 def render_anssi_hygiene():
     st.title("🛡️ ANSSI – Guide d’hygiène")
-    st.caption("Parcours : 1) Intro  2) Questionnaire  3) Review  4) Résultats")
+    st.caption("Parcours : 1) Intro  •  2) Questionnaire  •  3) Revue  •  4) Résultats")
+
+    # Uploader global visible partout (exigence utilisateur)
+    render_global_uploader()
 
     # --- State init ---
     st.session_state.setdefault("anssi_stage", "intro")       # intro | questions | review | results
     st.session_state.setdefault("anssi_org", {})              # contexte entreprise
     st.session_state.setdefault("anssi_status", {})           # {id_mesure: statut}
     st.session_state.setdefault("anssi_justifs", {})          # {id_mesure: justification}
-    st.session_state.setdefault("anssi_docs_bin", [])         # [{'name':..., 'bytes':...}]
-    st.session_state.setdefault("anssi_docs_text", "")        # concat (fallback)
     st.session_state.setdefault("anssi_index", None)          # RAG index si dispo
 
     measures = flatten_measures()
@@ -440,6 +431,27 @@ def render_anssi_hygiene():
         pct_answers = int(round(100 * answered / total)) if total else 0
         return pct_answers, answered
 
+    def _index_docs():
+        bins = get_uploaded_docs_bytes()
+        if not bins:
+            st.warning("Aucun document chargé dans l’uploader global.")
+            return
+        if not RAG_AVAILABLE:
+            st.info("Indexation avancée indisponible (module RAG non importé).")
+            return
+
+        class _UploadedLike:
+            def __init__(self, name, data):
+                self.name = name
+                self._data = data
+            def getvalue(self):
+                return self._data
+
+        files_like = [_UploadedLike(name, b) for name, b in bins]
+        with st.spinner("Indexation et embeddings…"):
+            st.session_state["anssi_index"] = build_vector_index(files_like)
+        st.success("Index construit ✔️")
+
     stage = st.session_state["anssi_stage"]
 
     # ---------- 1) INTRO ----------
@@ -450,75 +462,7 @@ def render_anssi_hygiene():
         nb_emp   = c2.number_input("Nombre d’employés", min_value=1, value=int(st.session_state["anssi_org"].get("nb_emp", 100)), key="anssi_org_nbemp")
         ca       = c1.text_input("Chiffre d’affaires (ex: 120 M€)", st.session_state["anssi_org"].get("ca",""), key="anssi_org_ca")
         pays     = c2.text_input("Filiales / Pays (ex: FR, LU, DE)", st.session_state["anssi_org"].get("pays",""), key="anssi_org_pays")
-        st.info("Ces informations contextualisent les recommandations (taille, secteur, pays).")
-
-        # --- Upload global de documents (optionnel) ---
-        st.markdown("### 📂 Documents globaux (optionnel)")
-        st.caption("Uploade un ou plusieurs documents (PDF/DOCX/TXT). L’IA les utilisera pour préremplir toutes les mesures. Un seul upload suffit.")
-        up_global = st.file_uploader(
-            "Ajouter des documents globaux (PDF, DOCX, TXT)",
-            type=["pdf", "docx", "txt"],
-            accept_multiple_files=True,
-            key="anssi_global_uploader"
-        )
-
-        # petites fonctions d'extraction (bytes -> texte)
-        def _extract_text_from_pdf_bytes(b: bytes) -> str:
-            try:
-                pdf = fitz.open(stream=b, filetype="pdf")
-                return "\n".join([p.get_text("text") for p in pdf])
-            except Exception:
-                return ""
-
-        def _extract_text_from_docx_bytes(b: bytes) -> str:
-            try:
-                d = docx.Document(io.BytesIO(b))
-                return "\n".join(p.text for p in d.paragraphs if p.text)
-            except Exception:
-                return ""
-
-        if up_global:
-            texts, bins, names = [], [], []
-            for f in up_global:
-                name = f.name
-                data = f.getvalue()
-                names.append(name)
-                bins.append({"name": name, "bytes": data})
-                if name.lower().endswith(".pdf"):
-                    texts.append(_extract_text_from_pdf_bytes(data))
-                elif name.lower().endswith(".docx"):
-                    texts.append(_extract_text_from_docx_bytes(data))
-                elif name.lower().endswith(".txt"):
-                    try:
-                        texts.append(data.decode("utf-8", errors="ignore"))
-                    except Exception:
-                        pass
-            st.session_state["anssi_docs_bin"] = bins
-            st.session_state["anssi_docs_text"] = ("\n\n".join(texts))[:16000]  # fallback
-            st.success(f"{len(names)} document(s) global(aux) chargé(s).")
-
-        # Indexation RAG (si dispo)
-        def _index_docs():
-            if not RAG_AVAILABLE:
-                st.info("Indexation avancée indisponible (module RAG non importé). Le mode IA utilisera le texte concaténé.")
-                return
-            bins = st.session_state.get("anssi_docs_bin", [])
-            if not bins:
-                st.warning("Aucun document chargé.")
-                return
-
-            # wrapper pour ressembler à UploadedFile
-            class _UploadedLike:
-                def __init__(self, name, data):
-                    self.name = name
-                    self._data = data
-                def getvalue(self):
-                    return self._data
-
-            files_like = [_UploadedLike(b["name"], b["bytes"]) for b in bins]
-            with st.spinner("Indexation et embeddings…"):
-                st.session_state["anssi_index"] = build_vector_index(files_like)
-            st.success("Index construit ✔️")
+        st.info("Les documents déposés via l’uploader global seront utilisés par l’IA (RAG/texte).")
 
         colA, colB, colC = st.columns([1,1,1])
         if colA.button("💾 Enregistrer & continuer", key="anssi_intro_save"):
@@ -527,11 +471,10 @@ def render_anssi_hygiene():
             st.rerun()
         if colB.button("🧭 Retour à l’accueil", key="anssi_intro_home"):
             go("home")
-        colC.button("🧱 Indexer les documents (IA avancée)", key="anssi_index_btn", on_click=_index_docs)
-
+        colC.button("🧱 Indexer les documents (IA avancée)", key="anssi_index_btn_intro", on_click=_index_docs)
         return
 
-    # --- IA: autofill global (RAG si dispo, sinon fallback texte concaténé) ---
+    # ---------- IA: Préremplissage global ----------
     def _anssi_autofill_from_global():
         client = get_openai_client()
         if client is None:
@@ -539,7 +482,8 @@ def render_anssi_hygiene():
             return
 
         org = st.session_state.get("anssi_org", {})
-        # Si index RAG dispo + construit -> par mesure (meilleure qualité)
+
+        # Si index RAG dispo + construit -> par mesure (qualité max)
         if RAG_AVAILABLE and st.session_state.get("anssi_index") and st.session_state["anssi_index"].get("chunks"):
             with st.spinner("Analyse IA (RAG) par mesure…"):
                 for m in measures:
@@ -551,7 +495,7 @@ def render_anssi_hygiene():
                         status = res.get("status", "Pas réponse")
                         if status not in STATUSES:
                             status = "Pas réponse"
-                        justif = res.get("justification", "")
+                        justif = ensure_plain_text(res.get("justification", ""))
                         cits = res.get("citations", [])
                         if cits:
                             justif = justif + "\n\n" + "Citations: " + "; ".join([f"{c['doc']} p.{c['page']}" for c in cits if isinstance(c, dict) and c.get('doc') and c.get('page')])
@@ -562,10 +506,10 @@ def render_anssi_hygiene():
                 st.success("✅ Préremplissage IA (RAG) terminé.")
             return
 
-        # Sinon: fallback en un seul appel (texte concaténé)
-        text = st.session_state.get("anssi_docs_text", "")
+        # Sinon: fallback via texte concaténé des uploads (interne; ok JSON car non affiché)
+        text = get_uploaded_docs_text()
         if not text:
-            st.warning("ℹ️ Aucun document global chargé. Ajoute des fichiers dans l’étape Intro.")
+            st.warning("ℹ️ Aucun document global chargé. Ajoute des fichiers dans l’uploader global.")
             return
 
         measures_brief = [{"id": m["id"], "title": m["title"], "theme": m["theme"]} for m in measures]
@@ -576,10 +520,7 @@ def render_anssi_hygiene():
             "évalue chaque mesure ANSSI et propose un statut conservateur. "
             "Si l'information est insuffisante, réponds 'Pas réponse'. "
             "Réponds STRICTEMENT en JSON (liste d’objets) : "
-            "[{"
-            '"id":"...", "status":"Conforme|Partiellement conforme|Non conforme|Pas réponse", '
-            '"justification":"...", "actions_top3":["...","...","..."]'
-            "}, ...]"
+            "[{\"id\":\"...\",\"status\":\"Conforme|Partiellement conforme|Non conforme|Pas réponse\",\"justification\":\"...\",\"actions_top3\":[\"...\",\"...\",\"...\"]}]"
         )
 
         user_msg = f"""
@@ -598,9 +539,8 @@ Extraits de documents globaux (tronqués):
 
 Consignes:
 - Donne un statut par mesure parmi: Conforme | Partiellement conforme | Non conforme | Pas réponse
-- Justifie brièvement (2-4 lignes).
-- Propose 3 actions concrètes et prioritaires (actions_top3).
-- Si incertain: 'Pas réponse' (pas d'invention).
+- Justifie brièvement (2-4 lignes) + 3 actions prioritaires.
+- Si incertain: 'Pas réponse'.
 Renvoie uniquement du JSON valide.
 """
 
@@ -626,7 +566,7 @@ Renvoie uniquement du JSON valide.
             if status not in STATUSES:
                 status = "Pas réponse"
             st.session_state["anssi_status"][mid] = status
-            st.session_state["anssi_justifs"][mid] = justif
+            st.session_state["anssi_justifs"][mid] = ensure_plain_text(justif)
 
         st.success("✅ Préremplissage IA terminé (fallback texte concaténé).")
 
@@ -637,26 +577,36 @@ Renvoie uniquement du JSON valide.
         st.write(f"Avancement questionnaire : **{pct_answers}%** — ({answered}/{total})")
         st.progress(pct_answers)
 
-        st.button(
-            "🧠 Préremplir automatiquement (documents globaux)",
-            key="anssi_autofill_btn",
-            on_click=_anssi_autofill_from_global
-        )
+        # Actions IA utiles directement ici
+        cA, cB, cC = st.columns([1,1,1])
+        cA.button("🧠 Préremplir automatiquement (docs globaux)", key="anssi_autofill_btn", on_click=_anssi_autofill_from_global)
+        cB.button("🧱 (Re)Indexer documents (IA avancée)", key="anssi_index_btn_q", on_click=_index_docs)
+        cC.button("🏠 Accueil", key="anssi_questions_home_btn", on_click=lambda: go("home"))
 
         theme = st.sidebar.radio("Thèmes", list(ANSSI_SECTIONS.keys()), key="anssi_theme_radio")
         st.subheader(theme)
+
+        # Système de réponse IA en TEXTE CLAIR pour le bouton par mesure
+        SYSTEM_FRENCH_PLAIN = (
+            "Tu es un auditeur cybersécurité/continuité. "
+            "Réponds en français, en texte clair (phrases ou puces). "
+            "N'utilise aucun JSON, aucun code fence. "
+            "Commence par une ligne 'Statut: ...' avec l'une des valeurs: "
+            "Conforme, Partiellement conforme, Non conforme, Pas réponse. "
+            "Puis donne une justification concise (3–6 lignes) et 2–4 actions concrètes."
+        )
 
         for m in ANSSI_SECTIONS[theme]:
             mid = m["id"]
             requirement = m["title"]
             question_md = _to_question_fr(requirement, m.get("theme"))
 
-            st.markdown(f"**{mid}**")
+            st.markdown(f"### {mid}")
             st.markdown(question_md)
             with st.expander("Voir l’exigence ANSSI (texte brut)"):
                 st.write(requirement)
 
-            # Statut
+            # Statut (sélecteur); clé stable par mesure
             current = st.session_state["anssi_status"].get(mid, "Pas réponse")
             new_status = st.selectbox(
                 "Statut",
@@ -666,7 +616,7 @@ Renvoie uniquement du JSON valide.
             )
             st.session_state["anssi_status"][mid] = new_status
 
-            # Zone texte consultant (réponse développée)
+            # Zone texte consultant (réponse détaillée)
             cur_just = st.session_state["anssi_justifs"].get(mid, "")
             new_just = st.text_area(
                 "Réponse détaillée (consultant) – Justification & éléments de preuve",
@@ -677,7 +627,7 @@ Renvoie uniquement du JSON valide.
             )
             st.session_state["anssi_justifs"][mid] = new_just
 
-            # IA par mesure
+            # IA par mesure (texte clair)
             cols = st.columns([1,1])
             if cols[0].button("💡 Proposer avec l’IA", key=f"ai_{mid}"):
                 client = get_openai_client()
@@ -686,39 +636,40 @@ Renvoie uniquement du JSON valide.
                 else:
                     try:
                         if RAG_AVAILABLE and st.session_state.get("anssi_index") and st.session_state["anssi_index"].get("chunks"):
+                            # Utiliser la fonction RAG existante puis formater en texte clair
                             res = propose_anssi_answer(requirement, question_md, st.session_state["anssi_index"])
-                            status = res.get("status", "Pas réponse")
+                            # Mettre à jour statut si cohérent
+                            status = res.get("status")
                             if status in STATUSES:
                                 st.session_state["anssi_status"][mid] = status
-                            justif = res.get("justification", "")
+                            # Justification -> texte clair
+                            justif = ensure_plain_text(res.get("justification", ""))
                             cits = res.get("citations", [])
                             if cits:
-                                justif = justif + "\n\n" + "Citations: " + "; ".join([f"{c['doc']} p.{c['page']}" for c in cits if isinstance(c, dict) and c.get('doc') and c.get('page')])
+                                justif += "\n\nCitations: " + "; ".join([f"{c['doc']} p.{c['page']}" for c in cits if isinstance(c, dict) and c.get('doc') and c.get('page')])
                             st.session_state["anssi_justifs"][mid] = justif
                         else:
-                            # fallback: contexte concaténé
-                            text = st.session_state.get("anssi_docs_text", "")
-                            system = (
-                                "Tu es un consultant cybersécurité senior. "
-                                "À partir du contexte fourni, propose un statut et une justification professionnelle (3-6 lignes)."
+                            # Fallback: prompt texte clair (sans JSON)
+                            context_text = get_uploaded_docs_text(truncate=8000)
+                            user_prompt = (
+                                f"EXIGENCE: {requirement}\n\nQUESTION:\n{question_md}\n\n"
+                                f"CONTEXTE (extraits des documents, éventuellement vide):\n{context_text}\n\n"
+                                "Donne uniquement du texte clair. Pas de JSON, pas de balises."
                             )
-                            user = f"EXIGENCE: {requirement}\nQUESTION:\n{question_md}\n\nCONTEXTE (tronqué):\n{text[:8000]}\n\n" \
-                                   "Réponds en JSON: {\"status\":\"Conforme|Partiellement conforme|Non conforme|Pas réponse\",\"justification\":\"...\"}"
                             resp = client.chat.completions.create(
                                 model=os.getenv("OPENAI_MODEL", "gpt-4o-mini"),
-                                messages=[{"role":"system","content":system},{"role":"user","content":user}],
+                                messages=[
+                                    {"role":"system","content": SYSTEM_FRENCH_PLAIN},
+                                    {"role":"user","content": user_prompt}
+                                ],
                                 temperature=0.2
                             )
-                            content = (resp.choices[0].message.content or "").strip()
-                            try:
-                                data = json.loads(content)
-                                status = data.get("status","Pas réponse")
-                                justif = data.get("justification","")
-                            except Exception:
-                                status, justif = "Pas réponse", content[:800]
-                            if status in STATUSES:
-                                st.session_state["anssi_status"][mid] = status
-                            st.session_state["anssi_justifs"][mid] = justif
+                            content = ensure_plain_text((resp.choices[0].message.content or "").strip())
+                            # Essayer d'extraire un statut depuis le texte
+                            detected = parse_status_from_text(content) or "Pas réponse"
+                            if detected in STATUSES:
+                                st.session_state["anssi_status"][mid] = detected
+                            st.session_state["anssi_justifs"][mid] = content
                         st.success("Proposition IA appliquée ✔️")
                         st.rerun()
                     except Exception as e:
@@ -742,7 +693,6 @@ Renvoie uniquement du JSON valide.
         st.write(f"Avancement réponses (hors 'Pas réponse') : **{pct_answers}%** — ({answered}/{total})")
         st.progress(pct_answers)
 
-        # Liste des manques
         missing = [m for m in measures if st.session_state["anssi_status"].get(m["id"], "Pas réponse") == "Pas réponse"]
         if missing:
             st.warning(f"Mesures sans réponse : {len(missing)}")
@@ -752,11 +702,9 @@ Renvoie uniquement du JSON valide.
         else:
             st.success("Toutes les mesures ont un statut (y compris 'Pas réponse').")
 
-        st.info("Tu peux lancer l’analyse maintenant (globale), ou revenir compléter les thématiques.")
-
         c1, c2, c3 = st.columns([1,1,1])
         c1.button("⬅️ Retour au questionnaire", key="anssi_review_back_to_questions", on_click=lambda: st.session_state.update({"anssi_stage":"questions"}) or st.rerun())
-        c2.button("⬅️ Accueil", key="anssi_review_home", on_click=lambda: go("home"))
+        c2.button("🏠 Accueil", key="anssi_review_home", on_click=lambda: go("home"))
         if c3.button("✅ Valider & commencer l’analyse (globale)", key="anssi_review_start"):
             st.session_state["anssi_stage"] = "results"
             st.rerun()
@@ -785,9 +733,8 @@ Renvoie uniquement du JSON valide.
         st.button("⬅️ Retour à l’accueil", key="anssi_results_home", on_click=lambda: go("home"))
         return
 
-
 # =========================================================
-#              PAGE ISO 27001 (ton contenu existant)
+#            ISO 27001 (page & IA préremplissage)
 # =========================================================
 def _ai_prefill_iso_by_domain(documents_text: str, iso_questions: Dict[str, List[Dict]]) -> Dict[str, Dict[str, str]]:
     client = get_openai_client()
@@ -828,9 +775,11 @@ def _ai_prefill_iso_by_domain(documents_text: str, iso_questions: Dict[str, List
                 out[domain][qtxt] = ans
     return out
 
-
 def render_iso27001():
     st.title("🔍 Audit ISO 27001")
+
+    # Uploader global utilisable aussi côté ISO (facultatif mais utile)
+    render_global_uploader()
 
     mode = st.radio(
         "🎯 Objectif d'audit",
@@ -926,7 +875,7 @@ IMPORTANT :
         bio.seek(0)
         return bio.getvalue()
 
-    st.subheader("📂 Importer documents du client")
+    st.subheader("📂 Importer documents du client (spécifique à ISO)")
     st.markdown(
         "Analysez vos documents (**politiques, procédures, rapports**) pour pré-remplir le questionnaire, "
         "générez une **Gap Analysis** et un **rapport Word** prêt à partager."
@@ -960,9 +909,11 @@ IMPORTANT :
         key="iso_uploader"
     )
 
-    documents_text = ""
+    # On combine textes des uploads ISO + uploader global
+    documents_text = get_uploaded_docs_text()
     detected_client_names = set()
 
+    # Ajoute le texte des fichiers uploadés ici (spécifique ISO)
     if uploaded_files:
         for file in uploaded_files:
             if file.name.lower().endswith(".pdf"):
@@ -973,8 +924,8 @@ IMPORTANT :
                 text = file.read().decode("utf-8", errors="ignore")
             else:
                 text = ""
+            documents_text += "\n" + text
 
-            documents_text += text + "\n"
             detected_name = detect_client_name_with_ai(text)
             if detected_name and detected_name != "Inconnu":
                 detected_client_names.add(detected_name)
@@ -1006,7 +957,7 @@ IMPORTANT :
             st.stop()
 
     responses = {}
-    if documents_text:
+    if documents_text.strip():
         client = get_openai_client()
         if client is None:
             st.warning("ℹ️ Aucune clé OpenAI détectée — l’analyse IA des documents est désactivée.")
@@ -1145,7 +1096,6 @@ IMPORTANT :
     st.divider()
     st.button("⬅️ Retour à l’accueil", key="iso_home", on_click=lambda: go("home"))
 
-
 # =========================================================
 #                       DISPATCH
 # =========================================================
@@ -1156,11 +1106,7 @@ if page == "home":
 elif page == "anssi_hygiene":
     render_anssi_hygiene()
 elif page == "iso27001":
-    try:
-        render_iso27001()
-    except NameError:
-        st.title("🔍 Audit ISO 27001")
-        st.info("La page ISO 27001 n'est pas incluse dans cet extrait. Garde ton implémentation actuelle pour cette route.")
+    render_iso27001()
 else:
     st.session_state["route"] = "home"
     render_home()
