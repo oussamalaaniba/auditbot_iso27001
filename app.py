@@ -80,6 +80,24 @@ def add_bg_from_local(image_file: str):
 if (BASE_DIR / "bg.png").exists():
     add_bg_from_local(str(BASE_DIR / "bg.png"))
 
+st.markdown("""
+<style>
+/* Forcer les titres à rester blancs dans toute l'app */
+html[data-theme="light"] .stApp h1,
+html[data-theme="dark"]  .stApp h1,
+html[data-theme="light"] .stApp h2,
+html[data-theme="dark"]  .stApp h2,
+html[data-theme="light"] .stApp h3,
+html[data-theme="dark"]  .stApp h3,
+html[data-theme="light"] .stApp h4,
+html[data-theme="dark"]  .stApp h4 {
+  color: #ffffff !important;
+  text-shadow: 0 2px 6px rgba(0,0,0,0.45); /* améliore la lisibilité sur fonds clairs ou foncés */
+}
+</style>
+""", unsafe_allow_html=True)
+
+
 # =========================================================
 #   OpenAI helpers
 # =========================================================
