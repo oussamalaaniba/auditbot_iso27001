@@ -1,0 +1,151 @@
+Thème,ID,Mesure,Statut,Emoji,Score (%),Priorité,Justification
+I – Sensibiliser et former,I-1,Former les équipes opérationnelles,Partiellement conforme,🟡,50,Medium,"**Statut** : Partiellement conforme
+
+**Justification** : L'organisation a mis en place des sessions de sensibilisation annuelles et un programme de formation continue pour les utilisateurs, ce qui montre un effort pour former les équipes opérationnelles. Cependant, il manque des détails sur les processus de validation et d'évaluation de l'efficacité de ces formations, ainsi que sur les indicateurs de performance associés."
+I – Sensibiliser et former,I-2,Sensibiliser les utilisateurs,Conforme,✅,100,Low,"**Statut** : Conforme
+
+**Justification** : L'organisation met en place des sessions de sensibilisation annuelles et un programme de formation continue pour informer les utilisateurs sur les menaces et les meilleures pratiques. De plus, elle documente les incidents et les mesures prises, ce qui renforce la vigilance des employés."
+I – Sensibiliser et former,I-3,Maîtriser les risques de l’infogérance,Partiellement conforme,🟡,50,Medium,"**Statut** : Partiellement conforme
+
+**Justification** : L'organisation a mis en place une gouvernance solide avec un comité dédié à la gestion des logs et à la supervision des indicateurs clés. Cependant, les processus d'infogérance et les contrôles techniques spécifiques à la gestion des risques liés à l'infogérance ne sont pas suffisamment détaillés dans les documents fournis, ce qui limite la maîtrise complète des risques associés."
+II – Connaître le SI,II-4,Identifier données/serveurs sensibles & schéma réseau,Partiellement conforme,🟡,50,Medium,"**Statut** : Partiellement conforme
+
+**Justification** : L'organisation a mis en place des processus pour identifier les données et serveurs sensibles, notamment à travers une classification des systèmes d'information et une gestion des incidents de fuite de données. Cependant, il manque des détails sur la documentation spécifique des schémas réseau et sur les indicateurs de performance liés à cette identification."
+II – Connaître le SI,II-5,Inventaire des comptes privilégiés,Non conforme,❌,0,High,"**Statut** : Non conforme
+
+**Justification** : L'organisation ne présente pas d'inventaire spécifique des comptes privilégiés, ni de processus clairement défini pour leur gestion. Bien que des procédures de gestion des logs et de classification des systèmes d'information soient mentionnées, elles ne couvrent pas explicitement les comptes privilégiés, ce qui constitue une lacune dans la gouvernance et les contrôles techniques nécessaires."
+II – Connaître le SI,II-6,Procédures arrivée/départ/changement,Partiellement conforme,🟡,50,Medium,"**Statut** : Partiellement conforme
+
+**Justification** : L'organisation a mis en place des procédures pour la gestion des logs, mais il n'est pas clairement indiqué comment les procédures d'arrivée, de départ et de changement des utilisateurs sont spécifiquement adressées. Bien que des processus de validation et de suivi soient mentionnés, l'absence de détails sur les processus d'approbation et de contrôle technique pour ces changements limite la conformité."
+II – Connaître le SI,II-7,Autoriser la connexion aux seuls équipements maîtrisés,Partiellement conforme,🟡,50,Medium,"{
+  ""status"": ""Partiellement conforme"",
+  ""justification"": ""L'organisation a mis en place des mesures de gouvernance et des processus pour superviser la gestion des logs et des incidents, mais il n'est pas clairement indiqué comment elle limite les connexions aux seuls équipements maîtrisés. Bien que des dispositifs de sécurité soient mentionnés, tels que des firewalls et des systèmes de détection, l'absence de détails sur les contrôles d'accès spécifiques aux équipements maîtrisés laisse un flou sur la conformité totale à cette exigence."",
+  ""citations"": [
+    {""doc"": ""CFG - Procédure de gestion et revue des logs V0.1.docx"", ""page"": 4},
+    {""doc"": ""CFG - Procédure de gestion et revue des logs V0.1.docx"", ""page"": 5},
+    {""doc"": ""CFG Politique de lutte contre les fuites de données"
+III – Authentifier & contrôler les accès,III-10,Règles de mots de passe,Non conforme,❌,0,High,"**Statut** : Non conforme
+
+**Justification** : L'organisation ne présente pas de règles spécifiques concernant la gestion des mots de passe dans les documents fournis. Bien que des processus de gouvernance et de gestion des logs soient décrits, il n'y a aucune mention explicite des exigences relatives aux mots de passe, ce qui est essentiel pour garantir la sécurité des accès. Les documents se concentrent principalement sur la gestion des logs et des fuites de données sans aborder les politiques de mots de passe."
+III – Authentifier & contrôler les accès,III-11,Protéger les mots de passe stockés,Non conforme,❌,0,High,"**Statut** : Non conforme
+
+**Justification** : L'organisation ne fournit pas de mesures spécifiques concernant la protection des mots de passe stockés. Bien que des processus de gestion des logs et de lutte contre les fuites de données soient en place, il n'y a aucune mention de contrôles techniques ou de politiques dédiées à la sécurisation des mots de passe, ce qui est essentiel pour répondre à cette exigence."
+III – Authentifier & contrôler les accès,III-12,Changer les identifiants par défaut,Non conforme,❌,0,High,"**Statut** : Non conforme
+
+**Justification** : L'organisation ne mentionne pas explicitement de processus ou de contrôles techniques pour changer les identifiants par défaut. Bien que des procédures de gestion des logs et des audits soient en place, il n'y a pas d'indication sur la gestion des identifiants par défaut, ce qui est essentiel pour la sécurité des systèmes."
+III – Authentifier & contrôler les accès,III-13,Authentification forte,Non conforme,❌,0,High,"**Statut** : Non conforme
+
+**Justification** : L'organisation ne semble pas avoir mis en place une authentification forte, car les documents fournis se concentrent principalement sur la gestion des logs et la protection des systèmes sans mentionner explicitement des mécanismes d'authentification forte. Les procédures décrivent des processus de gouvernance et de surveillance, mais ne traitent pas des exigences spécifiques liées à l'authentification des utilisateurs."
+III – Authentifier & contrôler les accès,III-8,Comptes nominatifs & séparation des rôles,Partiellement conforme,🟡,50,Medium,"**Statut** : Partiellement conforme
+
+**Justification** : L'organisation a mis en place des processus de gouvernance et de gestion des logs, ainsi que des équipes dédiées à la sécurité et à la conformité. Cependant, il manque des détails sur la séparation des rôles et l'utilisation de comptes nominatifs, ce qui est essentiel pour une conformité totale. Les documents mentionnent des audits et des sensibilisations, mais ne précisent pas suffisamment les mécanismes de séparation des rôles."
+III – Authentifier & contrôler les accès,III-9,Droits sur les ressources sensibles,Partiellement conforme,🟡,50,Medium,"{
+  ""status"": ""Partiellement conforme"",
+  ""justification"": ""L'organisation a mis en place une gouvernance solide avec un comité dédié à la gestion des logs et à la supervision des indicateurs clés. Cependant, il manque des détails sur les processus d'approbation spécifiques pour l'accès aux ressources sensibles et sur les contrôles techniques appliqués pour restreindre cet accès. Les documents mentionnent des audits et des formations, mais ne précisent pas suffisamment les mesures techniques mises en œuvre pour protéger les ressources sensibles."",
+  ""citations"": [
+    {""doc"": ""CFG - Procédure de gestion et revue des logs V0.1.docx"", ""page"": 4},
+    {""doc"": ""CFG Classification des systèmes d'information.docx"", ""page"": 7},
+    {""doc"": ""CFG Politique de lutte contre les fuites de donn"
+IV – Sécuriser les postes,IV-14,Niveau de sécurité minimal du parc,Partiellement conforme,🟡,50,Medium,"{
+  ""status"": ""Partiellement conforme"",
+  ""justification"": ""L'organisation a mis en place des processus de gouvernance et de gestion des logs, ainsi que des contrôles techniques pour assurer la sécurité des actifs. Cependant, il manque des détails sur les indicateurs de performance spécifiques et la supervision continue des niveaux de sécurité minimaux du parc. Les processus de validation et d'audit sont présents, mais la documentation sur les mesures de remédiation et les preuves de suivi des incidents pourrait être améliorée."",
+  ""citations"": [
+    {""doc"": ""CFG - Procédure de gestion et revue des logs V0.1.docx"", ""page"": 4},
+    {""doc"": ""CFG Classification des systèmes d'information.docx"", ""page"": 7},
+    {""doc"": ""CFG Politique de lutte contre les fuites de données.docx"", ""page"":"
+IV – Sécuriser les postes,IV-15,Se protéger des supports amovibles,Partiellement conforme,🟡,50,Medium,"**Statut** : Partiellement conforme
+
+**Justification** : L'organisation a mis en place des politiques de lutte contre les fuites de données et des outils de prévention (DLP) pour gérer les supports amovibles, mais il manque des détails sur les processus spécifiques de gouvernance et de contrôle technique relatifs à ces supports. Les mesures de sensibilisation et de formation sont présentes, mais leur efficacité sur la gestion des supports amovibles n'est pas clairement démontrée."
+IV – Sécuriser les postes,IV-16,Gestion centralisée des politiques de sécurité,Partiellement conforme,🟡,50,Medium,"**Statut** : Partiellement conforme
+
+**Justification** : L'organisation a mis en place un comité de gouvernance qui supervise la gestion des logs et valide les évolutions des politiques de sécurité. Cependant, il manque des détails sur la centralisation des processus et des contrôles techniques spécifiques pour assurer une gestion uniforme des politiques de sécurité à travers l'ensemble de l'organisation."
+IV – Sécuriser les postes,IV-17,Activer/configurer le pare-feu local,Partiellement conforme,🟡,50,Medium,"**Statut** : Partiellement conforme
+
+**Justification** : L'organisation utilise des firewalls tels que Fortigate et Palo Alto pour la protection périmétrique, mais il n'est pas précisé si le pare-feu local sur chaque machine est activé ou configuré de manière adéquate. La gouvernance et la supervision des logs sont en place, mais des détails sur les processus spécifiques de configuration des pare-feux locaux manquent."
+IV – Sécuriser les postes,IV-18,Chiffrer les données sensibles transmises,Partiellement conforme,🟡,50,Medium,"**Statut** : Partiellement conforme
+
+**Justification** : L'organisation a mis en place des processus de classification des données et des outils de détection des fuites, mais il n'est pas clairement indiqué que toutes les données sensibles transmises sont systématiquement chiffrées. Les mesures de réponse aux incidents sont bien documentées, mais le chiffrement des données sensibles lors de leur transmission n'est pas explicitement mentionné."
+"IX – Superviser, auditer, réagir",IX-36,Activer/configurer les journaux,Partiellement conforme,🟡,50,Medium,"{
+  ""status"": ""Conforme"",
+  ""justification"": ""L'organisation a mis en place une procédure complète pour la gestion et la revue des logs, incluant des processus de gouvernance, des contrôles techniques, et des indicateurs de performance. Le comité de gouvernance supervise la conformité et l'évolution des dispositifs de journalisation, tandis que le SOC assure la surveillance continue des événements de sécurité. Ces éléments garantissent que les journaux sont activés et configurés conformément aux exigences réglementaires."",
+  ""citations"": [
+    {""doc"": ""CFG - Procédure de gestion et revue des logs V0.1.docx"", ""page"": 4},
+    {""doc"": ""CFG - Procédure de gestion et revue des logs V0.1.docx"", ""page"": 3},
+    {""doc"": ""CFG - Procédure de gestion et revue des logs V0.1.docx"", ""page"": 1}"
+"IX – Superviser, auditer, réagir",IX-37,Politique de sauvegarde,Non conforme,❌,0,High,"**Statut** : Non conforme
+
+**Justification** : L'organisation ne fournit pas d'informations claires sur la politique de sauvegarde, notamment sur le périmètre, la fréquence, le chiffrement, les tests de restauration, et la supervision. Les documents se concentrent principalement sur la gestion des logs et la lutte contre les fuites de données, sans mentionner les sauvegardes et la restauration des systèmes."
+"IX – Superviser, auditer, réagir",IX-38,Audits réguliers & actions correctives,Conforme,✅,100,Low,"**Statut** : Conforme
+
+**Justification** : L'organisation met en place des audits réguliers et des actions correctives via un comité de gouvernance qui supervise les indicateurs clés et veille à la conformité des processus. De plus, des mesures de réponse et remédiation sont documentées et suivies trimestriellement pour analyser les KPI et proposer des plans d'action correctifs en cas d'anomalies."
+V – Sécuriser le réseau,V-19,Segmenter & cloisonner le réseau,Partiellement conforme,🟡,50,Medium,"**Statut** : Partiellement conforme
+
+**Justification** : L'organisation a mis en place des dispositifs de sécurité tels que des firewalls et un WAF pour segmenter le réseau, mais il manque des détails sur les processus de gouvernance et d'audit spécifiques à la segmentation. Les logs sont collectés et analysés, mais il n'est pas clairement indiqué comment cela s'intègre dans une stratégie de cloisonnement efficace."
+V – Sécuriser le réseau,V-20,Sécurité du Wi-Fi & séparation des usages,Non conforme,❌,0,High,"**Statut** : Non conforme
+
+**Justification** : L'organisation ne présente pas de mesures spécifiques concernant la sécurité du Wi-Fi et la séparation des usages. Bien que des processus de gestion des logs et des mesures de sécurité soient mentionnés, il n'y a pas d'indications sur la gouvernance ou les contrôles techniques relatifs au Wi-Fi. Les documents se concentrent principalement sur la gestion des logs et la lutte contre les fuites de données sans aborder directement la sécurité des réseaux sans fil."
+V – Sécuriser le réseau,V-21,Protocoles réseau sécurisés,Partiellement conforme,🟡,50,Medium,"**Statut** : Partiellement conforme
+
+**Justification** : L'organisation a mis en place des dispositifs de sécurité tels que des firewalls et un WAF pour protéger le réseau, et un comité de gouvernance supervise la gestion des logs et des incidents. Cependant, il n'est pas clairement indiqué si des protocoles réseau sécurisés spécifiques sont appliqués ou si des processus formels de validation des protocoles sont en place."
+V – Sécuriser le réseau,V-22,Passerelle d’accès sécurisé à Internet,Partiellement conforme,🟡,50,Medium,"**Statut** : Partiellement conforme
+
+**Justification** : L'organisation dispose de dispositifs de sécurité tels que des firewalls et un WAF pour protéger l'accès à Internet, mais il manque des détails sur les processus formels de gouvernance et de supervision des incidents. Bien que des logs soient collectés et analysés, la documentation ne précise pas suffisamment les indicateurs de performance et les processus d'approbation associés à la gestion des accès sécurisés."
+V – Sécuriser le réseau,V-23,Cloisonner les services exposés Internet,Conforme,✅,100,Low,"**Statut** : Conforme
+
+**Justification** : L'organisation met en place des dispositifs de sécurité robustes, tels que des firewalls et un WAF, pour cloisonner les services exposés à Internet. La surveillance des équipements en DMZ et la collecte de logs renforcent la sécurité des services critiques. De plus, la gouvernance est assurée par un comité qui suit les indicateurs clés de performance, garantissant ainsi une gestion efficace des risques associés aux services exposés."
+V – Sécuriser le réseau,V-24,Protéger la messagerie professionnelle,Partiellement conforme,🟡,50,Medium,"**Statut** : Partiellement conforme
+
+**Justification** : L'organisation a mis en place des outils de détection et de prévention des fuites de données (DLP) ainsi qu'un processus de traitement des alertes, mais il manque des éléments sur la gouvernance et la supervision des indicateurs spécifiques à la messagerie professionnelle. Les procédures de gestion des logs et les audits sont en place, mais leur application spécifique à la messagerie n'est pas clairement définie."
+V – Sécuriser le réseau,V-25,Sécuriser les interconnexions partenaires,Partiellement conforme,🟡,50,Medium,"**Statut** : Partiellement conforme
+
+**Justification** : L'organisation a mis en place des processus de gouvernance et des contrôles techniques pour sécuriser les interconnexions partenaires, notamment via la supervision des logs et la gestion des incidents. Cependant, il manque des détails sur les processus spécifiques d'approbation des interconnexions et sur la surveillance continue des connexions partenaires, ce qui limite la conformité totale."
+V – Sécuriser le réseau,V-26,Contrôler l’accès aux salles serveurs/locaux techniques,Partiellement conforme,🟡,50,Medium,"**Statut** : Partiellement conforme
+
+**Justification** : L'organisation a mis en place des processus de gouvernance et de supervision pour la gestion des logs, mais il n'est pas clairement indiqué comment l'accès aux salles serveurs est spécifiquement contrôlé. Bien que des mesures de sécurité soient mentionnées, telles que la surveillance des équipements critiques, les détails sur les contrôles d'accès physiques aux locaux techniques manquent."
+VI – Sécuriser l’administration,VI-27,Interdire Internet sur postes/serveurs d’admin,Non conforme,❌,0,High,"**Statut** : Non conforme
+
+**Justification** : Le document ne mentionne pas explicitement l'interdiction d'accès à Internet sur les postes ou serveurs d'administration. Bien que des mesures de sécurité soient en place, comme l'utilisation de firewalls et de systèmes de détection, il n'y a pas de processus clair ou de contrôle technique spécifiant cette interdiction. Cela laisse place à des interprétations et à des risques potentiels."
+VI – Sécuriser l’administration,VI-28,Réseau d’administration dédié/cloisonné,Non conforme,❌,0,High,"**Statut** : Non conforme
+
+**Justification** : L'organisation ne semble pas avoir mis en place un réseau d'administration dédié ou cloisonné, ce qui est essentiel pour sécuriser les opérations critiques. Bien que des mesures de sécurité soient mentionnées, telles que l'utilisation de firewalls et de systèmes de détection, il n'est pas fait mention d'une séparation claire des réseaux d'administration des autres réseaux, ce qui est crucial pour limiter les risques d'accès non autorisé."
+VI – Sécuriser l’administration,VI-29,Limiter les droits d’admin sur postes,Partiellement conforme,🟡,50,Medium,"**Statut** : Partiellement conforme
+
+**Justification** : L'organisation a mis en place des processus de gouvernance et de gestion des logs, mais il n'est pas clairement indiqué comment les droits d'administrateur sur les postes sont spécifiquement limités. Bien que des mesures de sécurité soient mentionnées, telles que la gestion des incidents et la sensibilisation des utilisateurs, l'absence de détails sur les contrôles techniques spécifiques pour restreindre les droits d'admin laisse un flou sur la conformité totale à cette exigence."
+VII – Gérer le nomadisme,VII-30,Sécurisation physique des terminaux nomades,Non conforme,❌,0,High,"**Statut** : Non conforme
+
+**Justification** : L'organisation ne présente pas de mesures spécifiques pour la sécurisation physique des terminaux nomades, telles que des processus de gouvernance, des contrôles techniques ou des indicateurs de supervision adaptés. Bien que des procédures de gestion des logs et de lutte contre les fuites de données soient mentionnées, elles ne couvrent pas explicitement la sécurisation physique des terminaux nomades."
+VII – Gérer le nomadisme,VII-31,Chiffrer les données sensibles (matériel perdable),Partiellement conforme,🟡,50,Medium,"**Statut** : Partiellement conforme
+
+**Justification** : L'organisation a mis en place des processus de classification et de gestion des données sensibles, mais il n'est pas clairement indiqué que toutes les données sensibles sur matériel perdable sont systématiquement chiffrées. Bien que des outils de prévention des pertes de données (DLP) soient mentionnés, l'exigence de chiffrement spécifique n'est pas explicitement abordée dans les documents fournis."
+VII – Gérer le nomadisme,VII-32,Sécuriser la connexion réseau en mobilité,Partiellement conforme,🟡,50,Medium,"**Statut** : Partiellement conforme
+
+**Justification** : L'organisation a mis en place des mesures de sécurité pour protéger les connexions réseau, notamment via des firewalls et des systèmes de détection des fuites de données. Cependant, il manque des détails sur les processus spécifiques de sécurisation des connexions en mobilité, tels que les approbations et les contrôles techniques dédiés à cette exigence."
+VII – Gérer le nomadisme,VII-33,Politiques dédiées aux terminaux mobiles,Non conforme,❌,0,High,"**Statut** : Non conforme
+
+**Justification** : L'organisation ne semble pas avoir mis en place des politiques spécifiques dédiées aux terminaux mobiles, comme l'exige la conformité. Bien que des procédures de gestion des logs et des mesures de protection des données soient mentionnées, il n'y a pas d'indications claires sur des processus, contrôles techniques ou indicateurs spécifiques relatifs aux terminaux mobiles."
+VIII – Maintenir le SI à jour,VIII-34,Politique de mise à jour,Partiellement conforme,🟡,50,Medium,"**Statut** : Partiellement conforme
+
+**Justification** : L'organisation a mis en place des processus de gouvernance et de sensibilisation, mais il manque des détails sur les processus de mise à jour spécifiques, tels que les SLA et les approbations formelles. Bien que le comité de gouvernance supervise les indicateurs clés, les contrôles techniques et les preuves de mise à jour ne sont pas clairement définis."
+VIII – Maintenir le SI à jour,VIII-35,Anticiper fin de support & limiter adhérences,Partiellement conforme,🟡,50,Medium,"{
+  ""status"": ""Partiellement conforme"",
+  ""justification"": ""L'organisation a mis en place un comité de gouvernance qui supervise la gestion des logs et valide les évolutions, ce qui montre une certaine anticipation des fins de support. Cependant, il manque des processus clairement définis pour limiter les adhérences aux systèmes obsolètes, notamment en ce qui concerne la gestion proactive des mises à jour et des remplacements d'actifs. Les contrôles techniques et les indicateurs de performance sont présents, mais leur efficacité dans la limitation des adhérences n'est pas explicitement démontrée."",
+  ""citations"": [
+    {""doc"": ""CFG - Procédure de gestion et revue des logs V0.1.docx"", ""page"": 4},
+    {""doc"": ""CFG - Procédure de gestion et revue des logs V0.1.docx"", ""page"": 7},
+    {"
+X – Pour aller plus loin,X-39,Gestion des vulnérabilités avancée (option),Partiellement conforme,🟡,50,Medium,"**Statut** : Partiellement conforme
+
+**Justification** : L'organisation a mis en place des processus de gestion des alertes et des incidents, ainsi qu'un suivi des indicateurs clés via un comité de gouvernance. Cependant, il manque des éléments spécifiques sur la gestion des vulnérabilités avancées, notamment des contrôles techniques dédiés et des preuves documentées de la remédiation des vulnérabilités identifiées."
+X – Pour aller plus loin,X-40,Durcissement renforcé (option),Partiellement conforme,🟡,50,Medium,"**Statut** : Partiellement conforme
+
+**Justification** : L'organisation a mis en place des processus de gestion des incidents et des logs, ainsi qu'une gouvernance par un comité dédié. Cependant, il manque des détails sur les contrôles techniques spécifiques au durcissement renforcé et sur les indicateurs de performance associés à cette exigence. Les mesures de réponse et remédiation sont bien documentées, mais l'absence d'indicateurs spécifiques pour le durcissement limite la conformité."
+X – Pour aller plus loin,X-41,Tests d’intrusion réguliers (option),Non conforme,❌,0,High,"**Statut** : Non conforme
+
+**Justification** : L'organisation ne mentionne pas la mise en place de tests d'intrusion réguliers, ni de processus formalisés pour leur réalisation. Bien que des mesures de sécurité soient décrites, il n'y a pas d'indication sur la fréquence ou la gouvernance des tests d'intrusion, ce qui est essentiel pour répondre à cette exigence."
+X – Pour aller plus loin,X-42,Plans d’amélioration continue (option),Conforme,✅,100,Low,"{
+  ""status"": ""Partiellement conforme"",
+  ""justification"": ""L'organisation a mis en place des processus de gouvernance et de suivi des indicateurs clés (KPI) pour améliorer la gestion des logs et des incidents. Cependant, il manque des éléments concrets sur la mise en œuvre systématique de plans d'amélioration continue, notamment en ce qui concerne la documentation des actions correctives et leur suivi. Les processus sont en place, mais leur application et leur efficacité nécessitent une formalisation plus rigoureuse."",
+  ""citations"": [
+    {""doc"": ""CFG - Procédure de gestion et revue des logs V0.1.docx"", ""page"": 4},
+    {""doc"": ""CFG - Procédure de gestion et revue des logs V0.1.docx"", ""page"": 8},
+    {""doc"": ""CFG Politique de lutte contre les fuites de données.docx"", ""page"": 12}"
