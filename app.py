@@ -53,9 +53,10 @@ OUTPUT_DIR = BASE_DIR / "data" / "output"
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
 # =========================================================
-#   Fond d'écran (optionnel)
+#   Fond d'écran (optionnel) + Styles unifiés (adaptatifs + overrides)
 # =========================================================
 def add_bg_from_local(image_file: str):
+    import base64
     try:
         with open(image_file, "rb") as f:
             data = f.read()
@@ -80,22 +81,165 @@ def add_bg_from_local(image_file: str):
 if (BASE_DIR / "bg.png").exists():
     add_bg_from_local(str(BASE_DIR / "bg.png"))
 
+# ---- Styles unifiés ----
 st.markdown("""
-<style>
-/* Forcer les titres à rester blancs dans toute l'app */
-html[data-theme="light"] .stApp h1,
-html[data-theme="dark"]  .stApp h1,
-html[data-theme="light"] .stApp h2,
-html[data-theme="dark"]  .stApp h2,
-html[data-theme="light"] .stApp h3,
-html[data-theme="dark"]  .stApp h3,
-html[data-theme="light"] .stApp h4,
-html[data-theme="dark"]  .stApp h4 {
-  color: #ffffff !important;
-  text-shadow: 0 2px 6px rgba(0,0,0,0.45); /* améliore la lisibilité sur fonds clairs ou foncés */
+<style id="unified-styles">
+:root, html[data-theme="light"], html[data-theme="dark"] {
+  --text-light: #ffffff;
+  --text-dark:  #111111;
+  --bg-dark:    #1e1e1e;
+  --bg-darker:  #141414;
+  --border:     #444;
 }
+
+/* ===================== ZONE PRINCIPALE (sur image sombre) ===================== */
+/* tout le texte blanc */
+[data-testid="stAppViewContainer"] .block-container,
+[data-testid="stAppViewContainer"] .block-container * {
+  color: var(--text-light) !important;
+}
+/* titres */
+[data-testid="stAppViewContainer"] .block-container h1,
+[data-testid="stAppViewContainer"] .block-container h2,
+[data-testid="stAppViewContainer"] .block-container h3,
+[data-testid="stAppViewContainer"] .block-container h4,
+[data-testid="stAppViewContainer"] .block-container [role="heading"] {
+  color: var(--text-light) !important;
+  text-shadow: 0 2px 6px rgba(0,0,0,.45) !important;
+}
+
+/* inputs/selects/textarea/number */
+[data-testid="stAppViewContainer"] .block-container input,
+[data-testid="stAppViewContainer"] .block-container textarea,
+[data-testid="stAppViewContainer"] .block-container select,
+[data-testid="stAppViewContainer"] .block-container .stNumberInput input,
+[data-testid="stAppViewContainer"] .block-container .stSelectbox div[data-baseweb="select"],
+[data-testid="stAppViewContainer"] .block-container .stMultiSelect div[data-baseweb="select"] {
+  background-color: var(--bg-dark) !important;
+  color: var(--text-light) !important;
+  border: 1px solid var(--border) !important;
+  caret-color: var(--text-light) !important;
+}
+
+/* stepper/boutons +/- du NumberInput */
+[data-testid="stAppViewContainer"] .block-container .stNumberInput > div > div:last-child,
+[data-testid="stAppViewContainer"] .block-container .stNumberInput button,
+[data-testid="stAppViewContainer"] .block-container .stNumberInput [role="button"],
+[data-testid="stAppViewContainer"] .block-container .stNumberInput [data-baseweb="button"] {
+  background-color: var(--bg-darker) !important;
+  color: var(--text-light) !important;
+  border-left: 1px solid var(--border) !important;
+  border-top: 1px solid var(--border) !important;
+  border-bottom: 1px solid var(--border) !important;
+}
+[data-testid="stAppViewContainer"] .block-container .stNumberInput svg {
+  color: var(--text-light) !important; 
+  fill: var(--text-light) !important;
+}
+
+/* boutons */
+[data-testid="stAppViewContainer"] .block-container .stButton button {
+  background-color: var(--bg-darker) !important;
+  color: var(--text-light) !important;
+  border: 1px solid var(--border) !important;
+}
+[data-testid="stAppViewContainer"] .block-container .stButton button:hover {
+  background-color: #2a2a2a !important;
+  border-color: #666 !important;
+}
+
+/* uploader: dropzone + bouton "Browse files" */
+[data-testid="stAppViewContainer"] .block-container [data-testid="stFileUploaderDropzone"] {
+  background-color: rgba(30,30,30,.85) !important;
+  border: 1px solid var(--border) !important;
+}
+[data-testid="stAppViewContainer"] .block-container [data-testid="stFileUploaderDropzone"] *,
+[data-testid="stAppViewContainer"] .block-container [data-testid="stFileUploaderDropzone"] button,
+[data-testid="stAppViewContainer"] .block-container [data-testid="stFileUploader"] button {
+  color: var(--text-light) !important;
+}
+[data-testid="stAppViewContainer"] .block-container [data-testid="stFileUploaderDropzone"] button,
+[data-testid="stAppViewContainer"] .block-container [data-testid="stFileUploader"] button {
+  background-color: var(--bg-darker) !important;
+  border: 1px solid var(--border) !important;
+}
+[data-testid="stAppViewContainer"] .block-container [data-testid="stFileUploaderDropzone"] button:hover,
+[data-testid="stAppViewContainer"] .block-container [data-testid="stFileUploader"] button:hover {
+  background-color: #2a2a2a !important;
+}
+
+/* select: valeur, placeholder, chevron, menu */
+[data-testid="stAppViewContainer"] .block-container .stSelectbox div[data-baseweb="select"] * {
+  color: var(--text-light) !important;
+}
+[data-testid="stAppViewContainer"] .block-container .stSelectbox div[data-baseweb="select"] [class*="placeholder"] {
+  color: #cfcfcf !important;
+}
+[data-testid="stAppViewContainer"] .block-container .stSelectbox svg {
+  color: var(--text-light) !important; 
+  fill: var(--text-light) !important;
+}
+[data-testid="stAppViewContainer"] .block-container [data-baseweb="menu"] {
+  background: #222 !important; 
+  color: var(--text-light) !important; 
+  border: 1px solid var(--border) !important;
+}
+
+/* textarea placeholder */
+[data-testid="stAppViewContainer"] .block-container .stTextArea textarea::placeholder {
+  color: #cfcfcf !important;
+}
+
+/* tables */
+[data-testid="stAppViewContainer"] .block-container .stDataFrame,
+[data-testid="stAppViewContainer"] .block-container .stDataFrame * {
+  color: var(--text-light) !important;
+}
+[data-testid="stAppViewContainer"] .block-container .stDataFrame [class^="row"] [class^="cell"],
+[data-testid="stAppViewContainer"] .block-container .stDataFrame [data-testid="stTable"] td,
+[data-testid="stAppViewContainer"] .block-container .stDataFrame [data-testid="stTable"] th {
+  background-color: #202020 !important;
+  border-color: #2b2b2b !important;
+}
+
+/* progress/slider */
+[data-testid="stAppViewContainer"] .block-container .stProgress > div > div {
+  background: linear-gradient(90deg, #6ec1ff, #3aa0ff) !important;
+}
+[data-testid="stAppViewContainer"] .block-container .stSlider [role="slider"] {
+  background-color: #3aa0ff !important;
+  box-shadow: 0 0 0 3px rgba(58,160,255,.25) !important;
+}
+
+/* overlay sombre uniquement sur la zone principale */
+[data-testid="stAppViewContainer"]::before {
+  content:"";
+  position:fixed;
+  inset:0;
+  background: rgba(0,0,0,.22);
+  pointer-events:none;
+  z-index:0;
+}
+[data-testid="stAppViewContainer"] .block-container {
+  position:relative;
+  z-index:1;
+}
+
+/* ===================== SIDEBAR ===================== */
+/* laisser la sidebar suivre le thème pour rester lisible sur fond clair/sombre */
+html[data-theme="light"] [data-testid="stSidebar"],
+html[data-theme="light"] [data-testid="stSidebar"] * { color: var(--text-dark) !important; }
+html[data-theme="dark"]  [data-testid="stSidebar"],
+html[data-theme="dark"]  [data-testid="stSidebar"] * { color: var(--text-light) !important; }
+
 </style>
 """, unsafe_allow_html=True)
+
+
+
+
+
+
 
 
 # =========================================================
